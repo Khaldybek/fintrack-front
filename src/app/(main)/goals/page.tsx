@@ -1,5 +1,6 @@
-import { GoalsPageContent } from "./goals-page-content";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/shared/config";
 
 export default function GoalsPage() {
-  return <GoalsPageContent />;
+  redirect(ROUTES.planning);
 }

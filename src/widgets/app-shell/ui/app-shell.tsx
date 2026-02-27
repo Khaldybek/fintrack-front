@@ -9,6 +9,7 @@ export type NavKey =
   | "dashboard"
   | "transactions"
   | "analytics"
+  | "planning"
   | "budgets"
   | "goals"
   | "profile";
@@ -29,8 +30,7 @@ const navItems: { key: NavKey; label: string; href: string }[] = [
   { key: "dashboard", label: "Главная", href: ROUTES.home },
   { key: "transactions", label: "Транзакции", href: ROUTES.transactions },
   { key: "analytics", label: "Аналитика", href: ROUTES.analytics },
-  { key: "budgets", label: "Бюджеты", href: ROUTES.budgets },
-  { key: "goals", label: "Цели", href: ROUTES.goals },
+  { key: "planning", label: "Бюджеты и цели", href: ROUTES.planning },
   { key: "profile", label: "Профиль", href: ROUTES.profile },
 ];
 
@@ -48,9 +48,9 @@ export function AppShell({
     ["dashboard", "transactions", "analytics", "profile"].includes(item.key),
   );
   const mobileSecondary = navItems.filter((item) =>
-    ["budgets", "goals"].includes(item.key),
+    ["planning"].includes(item.key),
   );
-  const isMoreActive = ["budgets", "goals"].includes(active);
+  const isMoreActive = active === "planning";
 
   return (
     <div className="app-shell">

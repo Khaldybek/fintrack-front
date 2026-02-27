@@ -6,6 +6,8 @@ export const ROUTES = {
   home: "/",
   transactions: "/transactions",
   analytics: "/analytics",
+  /** Объединённая страница бюджетов и целей */
+  planning: "/planning",
   budgets: "/budgets",
   goals: "/goals",
   profile: "/profile",

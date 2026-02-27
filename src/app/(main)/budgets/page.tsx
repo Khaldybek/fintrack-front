@@ -1,5 +1,6 @@
-import { BudgetsPageContent } from "./budgets-page-content";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/shared/config";
 
 export default function BudgetsPage() {
-  return <BudgetsPageContent />;
+  redirect(ROUTES.planning);
 }

@@ -53,7 +53,8 @@ function explanationClass(sev: SeverityLevel): string {
   return "text-[var(--ink-soft)]";
 }
 
-export function BudgetsPageContent() {
+/** Контент без обёртки AppShell — для встраивания на объединённую страницу «Бюджеты и цели». */
+export function BudgetsSection() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,21 +165,17 @@ export function BudgetsPageContent() {
 
   if (loading) {
     return (
-      <AppShell active="budgets" title="Бюджеты" subtitle="Лимиты по категориям и контроль превышений в реальном времени." actionLabel="+ Новый бюджет">
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <div className="metric-label">Загрузка…</div>
-        </section>
-      </AppShell>
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="metric-label">Загрузка…</div>
+      </section>
     );
   }
 
   if (error && budgets.length === 0) {
     return (
-      <AppShell active="budgets" title="Бюджеты" subtitle="Лимиты по категориям и контроль превышений в реальном времени." actionLabel="+ Новый бюджет">
-        <section className="grid grid-cols-1 gap-5">
-          <div className="alert alert-warn">{error}</div>
-        </section>
-      </AppShell>
+      <section className="grid grid-cols-1 gap-5">
+        <div className="alert alert-warn">{error}</div>
+      </section>
     );
   }
 
@@ -187,98 +184,89 @@ export function BudgetsPageContent() {
 
   return (
     <>
-      <AppShell
-        active="budgets"
-        title="Бюджеты"
-        subtitle="Лимиты по категориям и контроль превышений в реальном времени."
-        actionLabel="+ Новый бюджет"
-        actionAs={
-          <button className="action-btn" type="button" onClick={openCreateModal}>
-            + Новый бюджет
-          </button>
-        }
-      >
-        {budgets.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <span className="mono text-xs text-[var(--ink-muted)] uppercase tracking-wide capitalize">{monthLabel}</span>
-            {atRisk > 0 && (
-              <span className="budget-pill risk">{atRisk} перерасход{atRisk > 1 ? "а" : ""}</span>
-            )}
-            {atAttention > 0 && (
-              <span className="budget-pill warn">{atAttention} на грани</span>
-            )}
-          </div>
-        )}
-
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {budgets.length === 0 ? (
-            <div className="card p-5 md:p-6">
-              <p className="text-sm text-[var(--ink-muted)]">
-                Нет бюджетов. Нажмите «+ Новый бюджет», чтобы задать лимит по категории.
-              </p>
-            </div>
-          ) : (
-            budgets.map((item) => {
-              const sev = getSeverity(item);
-              const percent = item.progress_percent ?? (item.limit_minor > 0 ? Math.round((item.spent_minor / item.limit_minor) * 100) : 0);
-              const categoryName = item.category?.name ?? item.categoryId;
-
-              return (
-                <article key={item.id} className="card p-5 md:p-6">
-                  <div className="flex items-start justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{categoryName}</h2>
-                    <span className={severityClass(sev)}>
-                      {severityLabel(sev)} {percent}%
-                    </span>
-                  </div>
-
-                  <p className="mt-2 text-sm text-[var(--ink-muted)]">
-                    Потрачено: <span className="font-medium text-[var(--ink-soft)]">{formatMoney(item.spent)}</span>
-                    {" из "}
-                    <span className="font-medium text-[var(--ink-strong)]">{formatMoney(item.limit)}</span>
-                  </p>
-
-                  <div className="mt-3 h-2.5 rounded-full bg-[var(--surface-3)]">
-                    <div
-                      className={`h-2.5 rounded-full transition-all ${barClass(sev)}`}
-                      style={{ width: `${Math.min(100, percent)}%` }}
-                    />
-                  </div>
-
-                  {item.thresholds && (
-                    <div className="mt-2 flex gap-3 text-[10px] text-[var(--ink-muted)] mono">
-                      <span className={item.thresholds.warning_70 ? "text-[#b45309] font-semibold" : ""}>70%</span>
-                      <span className={item.thresholds.warning_85 ? "text-[#b45309] font-semibold" : ""}>85%</span>
-                      <span className={item.thresholds.danger_100 ? "text-[#9f1239] font-semibold" : ""}>100%</span>
-                    </div>
-                  )}
-
-                  {item.explanation && (
-                    <p className={`mt-3 text-sm ${explanationClass(sev)}`}>{item.explanation}</p>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="tx-inline-btn h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
-                      onClick={() => openEdit(item)}
-                    >
-                      Редактировать
-                    </button>
-                    <button
-                      type="button"
-                      className="tx-inline-btn danger h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
-                      onClick={() => setDeleteConfirmId(item.id)}
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </article>
-              );
-            })
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="mono text-xs text-[var(--ink-muted)] uppercase tracking-wide capitalize">{monthLabel}</span>
+          {atRisk > 0 && (
+            <span className="budget-pill risk">{atRisk} перерасход{atRisk > 1 ? "а" : ""}</span>
           )}
-        </section>
-      </AppShell>
+          {atAttention > 0 && (
+            <span className="budget-pill warn">{atAttention} на грани</span>
+          )}
+        </div>
+        <button className="action-btn" type="button" onClick={openCreateModal}>
+          + Новый бюджет
+        </button>
+      </div>
+
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {budgets.length === 0 ? (
+          <div className="card p-5 md:p-6">
+            <p className="text-sm text-[var(--ink-muted)]">
+              Нет бюджетов. Нажмите «+ Новый бюджет», чтобы задать лимит по категории.
+            </p>
+          </div>
+        ) : (
+          budgets.map((item) => {
+            const sev = getSeverity(item);
+            const percent = item.progress_percent ?? (item.limit_minor > 0 ? Math.round((item.spent_minor / item.limit_minor) * 100) : 0);
+            const categoryName = item.category?.name ?? item.categoryId;
+
+            return (
+              <article key={item.id} className="card p-5 md:p-6">
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{categoryName}</h2>
+                  <span className={severityClass(sev)}>
+                    {severityLabel(sev)} {percent}%
+                  </span>
+                </div>
+
+                <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                  Потрачено: <span className="font-medium text-[var(--ink-soft)]">{formatMoney(item.spent)}</span>
+                  {" из "}
+                  <span className="font-medium text-[var(--ink-strong)]">{formatMoney(item.limit)}</span>
+                </p>
+
+                <div className="mt-3 h-2.5 rounded-full bg-[var(--surface-3)]">
+                  <div
+                    className={`h-2.5 rounded-full transition-all ${barClass(sev)}`}
+                    style={{ width: `${Math.min(100, percent)}%` }}
+                  />
+                </div>
+
+                {item.thresholds && (
+                  <div className="mt-2 flex gap-3 text-[10px] text-[var(--ink-muted)] mono">
+                    <span className={item.thresholds.warning_70 ? "text-[#b45309] font-semibold" : ""}>70%</span>
+                    <span className={item.thresholds.warning_85 ? "text-[#b45309] font-semibold" : ""}>85%</span>
+                    <span className={item.thresholds.danger_100 ? "text-[#9f1239] font-semibold" : ""}>100%</span>
+                  </div>
+                )}
+
+                {item.explanation && (
+                  <p className={`mt-3 text-sm ${explanationClass(sev)}`}>{item.explanation}</p>
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="tx-inline-btn h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
+                    onClick={() => openEdit(item)}
+                  >
+                    Редактировать
+                  </button>
+                  <button
+                    type="button"
+                    className="tx-inline-btn danger h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
+                    onClick={() => setDeleteConfirmId(item.id)}
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </article>
+            );
+          })
+        )}
+      </section>
 
       {/* Модал создания */}
       {modalOpen && (
@@ -420,5 +408,18 @@ export function BudgetsPageContent() {
         </div>
       )}
     </>
+  );
+}
+
+/** Отдельная страница «Бюджеты» (для обратной совместимости и редиректа). */
+export function BudgetsPageContent() {
+  return (
+    <AppShell
+      active="budgets"
+      title="Бюджеты"
+      subtitle="Лимиты по категориям и контроль превышений в реальном времени."
+    >
+      <BudgetsSection />
+    </AppShell>
   );
 }

@@ -83,7 +83,19 @@ export function AddTransactionModal({
 
   const amountDisplay = formatAmountDisplay(amountRaw || "0");
   const amountNum = parseFloat((amountRaw || "0").replace(/\s/g, "").replace(",", "."));
-  const canSubmit = Number.isFinite(amountNum) && amountNum > 0 && categoryId && accountId;
+  const hasAmount = Number.isFinite(amountNum) && amountNum > 0;
+  const hasAccount = accounts.length > 0 && accountId != null;
+  const canSubmit = hasAmount && categoryId != null && hasAccount;
+  const submitBlockReason =
+    step === 3 &&
+    !canSubmit &&
+    (hasAmount
+      ? hasAccount
+        ? null
+        : accounts.length === 0
+          ? "Профиль → раздел «Счета» → кнопка «+ Добавить счёт»"
+          : "Выберите счёт выше"
+      : "Вернитесь на шаг 1 и введите сумму");
 
   const handleSubmit = async () => {
     if (!canSubmit || !categoryId || !accountId) return;
@@ -196,9 +208,16 @@ export function AddTransactionModal({
 
         {step === 3 && (
           <div className="space-y-3">
+            <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+              Счёт списания
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {loading ? (
-                <p className="text-sm text-[var(--ink-muted)]">Загрузка счетов…</p>
+                <p className="col-span-full text-sm text-[var(--ink-muted)]">Загрузка счетов…</p>
+              ) : accounts.length === 0 ? (
+                <p className="col-span-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Нет добавленных счетов. Откройте <strong>Профиль</strong> (внизу экрана) → блок «Счета» → кнопка «+ Добавить счёт». После добавления счёта кнопка «Сохранить» станет активной.
+                </p>
               ) : (
                 accounts.map((acc) => (
                   <button
@@ -232,6 +251,11 @@ export function AddTransactionModal({
           <div className="mt-3 alert alert-warn">{formError}</div>
         )}
 
+        {submitBlockReason && (
+          <p className="mt-3 rounded-lg bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-muted)]">
+            {submitBlockReason}
+          </p>
+        )}
         <div className="mt-4 flex items-center justify-between gap-2">
           <button
             className="filter-chip"
@@ -251,10 +275,11 @@ export function AddTransactionModal({
             </button>
           ) : (
             <button
-              className="action-btn"
+              className={`action-btn ${!canSubmit || submitting ? "opacity-60 cursor-not-allowed" : ""}`}
               onClick={handleSubmit}
               type="button"
               disabled={!canSubmit || submitting}
+              title={typeof submitBlockReason === "string" ? submitBlockReason : undefined}
             >
               {submitting ? "Сохранение…" : "Сохранить"}
             </button>

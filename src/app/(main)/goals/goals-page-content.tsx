@@ -70,7 +70,8 @@ function progressBarColor(sev: string | undefined): string {
 
 const ENTRIES_PAGE_SIZE = 20;
 
-export function GoalsPageContent() {
+/** Контент без обёртки AppShell — для встраивания на объединённую страницу «Бюджеты и цели». */
+export function GoalsSection() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -270,35 +271,29 @@ export function GoalsPageContent() {
 
   if (loading) {
     return (
-      <AppShell active="goals" title="Финансовые цели" subtitle="Мотивационная визуализация накоплений." actionLabel="+ Новая цель">
-        <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <div className="metric-label">Загрузка…</div>
-        </section>
-      </AppShell>
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div className="metric-label">Загрузка…</div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <AppShell active="goals" title="Финансовые цели" subtitle="Мотивационная визуализация накоплений." actionLabel="+ Новая цель">
-        <section className="grid grid-cols-1 gap-5">
-          <div className="alert alert-warn">{error}</div>
-        </section>
-      </AppShell>
+      <section className="grid grid-cols-1 gap-5">
+        <div className="alert alert-warn">{error}</div>
+      </section>
     );
   }
 
   return (
     <>
-      <AppShell
-        active="goals"
-        title="Финансовые цели"
-        subtitle="Мотивационная визуализация накоплений без перегруженной геймификации."
-        actionLabel="+ Новая цель"
-        actionAs={<button className="action-btn" type="button" onClick={openModal}>+ Новая цель</button>}
-      >
-        <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-          {goals.length === 0 ? (
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <button className="action-btn" type="button" onClick={openModal}>
+          + Новая цель
+        </button>
+      </div>
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        {goals.length === 0 ? (
             <div className="card p-5 md:p-6">
               <p className="text-sm text-[var(--ink-muted)]">
                 Нет целей. Создайте цель накопления, нажав «+ Новая цель».
@@ -365,7 +360,6 @@ export function GoalsPageContent() {
             })
           )}
         </section>
-      </AppShell>
 
       {/* Модал создания */}
       {modalOpen && (
@@ -577,6 +571,19 @@ export function GoalsPageContent() {
         </div>
       )}
     </>
+  );
+}
+
+/** Отдельная страница «Цели» (для обратной совместимости и редиректа). */
+export function GoalsPageContent() {
+  return (
+    <AppShell
+      active="goals"
+      title="Финансовые цели"
+      subtitle="Мотивационная визуализация накоплений без перегруженной геймификации."
+    >
+      <GoalsSection />
+    </AppShell>
   );
 }
 

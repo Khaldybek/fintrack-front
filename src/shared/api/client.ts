@@ -1,6 +1,8 @@
 /**
- * API-клиент: Bearer token, credentials: 'include', 401 → refresh и повтор запроса.
- * При 401 после неудачного refresh — редирект на /login (чтобы не сыпать ошибки на главной).
+ * API-клиент: Bearer access token в памяти, refresh token — в httpOnly cookie (бэкенд).
+ * credentials: 'include' — куки с refresh автоматически уходят на сервер.
+ * При 401: POST /auth/refresh (с cookie) → новый access, повтор исходного запроса.
+ * Если refresh не прошёл — редирект на /login.
  */
 import { API_V1, ROUTES } from "@/shared/config";
 import { ApiError, getAccessTokenFromResponse, type FeatureGatedBody } from "./types";
@@ -16,10 +18,11 @@ export type RequestConfig = RequestInit & {
   basePath?: string;
 };
 
+/** Обновление сессии: refresh token берётся из cookie (credentials: "include"). */
 async function doRefresh(): Promise<string> {
   const res = await fetch(`${API_V1}/auth/refresh`, {
     method: "POST",
-    credentials: "include",
+    credentials: "include", // отправляем httpOnly cookie с refresh token
     headers: { "Content-Type": "application/json" },
   });
   if (!res.ok) throw new ApiError("Session expired", res.status);
