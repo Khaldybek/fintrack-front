@@ -160,7 +160,8 @@ export function GoalsSection() {
       setEntryError("Введите ненулевую сумму");
       return;
     }
-    const amountMinor = Math.round(num * 100);
+    // API целей ожидает сумму в целых единицах (как target_minor/current_minor), не в тиынах
+    const amountMinor = Math.round(num);
     setEntrySubmitting(true);
     try {
       const { entry, goal: updatedGoal } = await addGoalEntry(goalDetailId, {
@@ -450,14 +451,15 @@ export function GoalsSection() {
                 ) : (
                   <ul className="space-y-2">
                     {entries.map((entry) => {
-                      const main = entry.amountMinor / 100;
+                      // amountMinor приходит в целых единицах (как при создании цели), не в тиынах
+                      const main = Math.abs(entry.amountMinor);
                       const isAdd = entry.amountMinor > 0;
                       return (
                         <li key={entry.id} className="rounded-lg border border-[var(--line)] p-3 text-sm">
                           <div className="flex items-baseline justify-between gap-2">
                             <span className="text-xs text-[var(--ink-muted)]">{formatEntryDate(entry.createdAt)}</span>
                             <span className={`mono font-semibold ${isAdd ? "text-[#166534]" : "text-[#9f1239]"}`}>
-                              {isAdd ? "+" : ""}{main.toLocaleString("ru-KZ")} ₸
+                              {isAdd ? "+" : "−"}{main.toLocaleString("ru-KZ")} ₸
                             </span>
                           </div>
                           {entry.comment && (

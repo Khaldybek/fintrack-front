@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActionInfoModal } from "@/shared/ui";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
-import { AddAccountModal } from "@/features/add-account";
-import { getMe, getMePlan, getAccounts } from "@/shared/api";
+import { AddAccountModal, EditAccountModal } from "@/features/add-account";
+import { getMe, getMePlan, getAccounts, deleteAccount } from "@/shared/api";
 import type { Profile, PlanResponse, Account } from "@/shared/api";
 
 const localeLabel: Record<string, string> = {
@@ -21,12 +21,28 @@ export function ProfilePageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadAccounts = useCallback(() => {
     getAccounts()
       .then((list) => setAccounts(list ?? []))
       .catch(() => {});
   }, []);
+
+  const handleDeleteAccount = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await deleteAccount(id);
+      setAccounts((prev) => prev.filter((a) => a.id !== id));
+      setDeleteConfirmId(null);
+    } catch {
+      // ошибка уже показать можно через setError
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     Promise.all([getMe(), getMePlan(), getAccounts()])
@@ -136,15 +152,31 @@ export function ProfilePageContent() {
               accounts.map((acc) => (
                 <div
                   key={acc.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-semibold text-[var(--ink-strong)]">{acc.name}</p>
                     <p className="text-xs text-[var(--ink-muted)]">{acc.currency}</p>
                   </div>
-                  <p className="mono text-sm font-semibold text-[var(--ink-strong)]">
+                  <p className="mono shrink-0 text-sm font-semibold text-[var(--ink-strong)]">
                     {acc.balance?.formatted ?? `${(acc.balance?.amount_minor ?? 0) / 100} ${acc.currency}`}
                   </p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--ink-soft)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink-strong)]"
+                      onClick={() => setEditingAccount(acc)}
+                    >
+                      Изменить
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-medium text-[#9f1239] transition hover:bg-red-50 hover:text-[#7f1d1d]"
+                      onClick={() => setDeleteConfirmId(acc.id)}
+                    >
+                      Удалить
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -205,10 +237,56 @@ export function ProfilePageContent() {
       {showAddAccount && (
         <AddAccountModal
           onClose={() => setShowAddAccount(false)}
-          onSuccess={() => {
-            loadAccounts();
+          onSuccess={() => loadAccounts()}
+        />
+      )}
+
+      {editingAccount && (
+        <EditAccountModal
+          account={editingAccount}
+          onClose={() => setEditingAccount(null)}
+          onSuccess={(updated) => {
+            setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+            setEditingAccount(null);
           }}
         />
+      )}
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[82] flex flex-col items-center justify-center p-4">
+          <button
+            aria-label="Закрыть"
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"
+            onClick={() => setDeleteConfirmId(null)}
+            type="button"
+          />
+          <section className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--line)] bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
+              Удалить счёт?
+            </h3>
+            <p className="mt-2 text-sm text-[var(--ink-muted)]">
+              {accounts.find((a) => a.id === deleteConfirmId)?.name ?? "Счёт"} будет удалён.
+              Транзакции по нему останутся в истории, но привязка к счёту может измениться.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-strong)] transition hover:bg-[var(--surface-3)]"
+                onClick={() => setDeleteConfirmId(null)}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-xl bg-[#9f1239] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1d1d] disabled:opacity-60"
+                onClick={() => deleteConfirmId && handleDeleteAccount(deleteConfirmId)}
+                disabled={deletingId === deleteConfirmId}
+              >
+                {deletingId === deleteConfirmId ? "Удаление…" : "Удалить"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </AppShell>
   );

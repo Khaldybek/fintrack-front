@@ -97,7 +97,8 @@ export function BudgetsSection() {
   const openEdit = (item: Budget) => {
     setEditBudget(item);
     setFormError(null);
-    setFormLimit(formatAmountInput(String(Math.round(item.limit_minor / 100))));
+    // limit_minor приходит в целых единицах (тенге)
+    setFormLimit(formatAmountInput(String(Math.round(item.limit_minor))));
     setFormCurrency(item.currency ?? "KZT");
   };
 
@@ -112,7 +113,7 @@ export function BudgetsSection() {
     try {
       await createBudget({
         categoryId: formCategoryId.trim(),
-        limitMinor: Math.round(limitNum * 100),
+        limitMinor: Math.round(limitNum),
         currency: formCurrency || undefined,
       });
       await loadBudgets();
@@ -138,7 +139,7 @@ export function BudgetsSection() {
     setSubmitting(true);
     try {
       await updateBudget(editBudget.id, {
-        limitMinor: Math.round(limitNum * 100),
+        limitMinor: Math.round(limitNum),
         currency: formCurrency || undefined,
       });
       await loadBudgets();

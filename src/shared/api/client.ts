@@ -1,34 +1,66 @@
 /**
- * API-клиент: Bearer access token в памяти, refresh token — в httpOnly cookie (бэкенд).
- * credentials: 'include' — куки с refresh автоматически уходят на сервер.
- * При 401: POST /auth/refresh (с cookie) → новый access, повтор исходного запроса.
- * Если refresh не прошёл — редирект на /login.
+ * API-клиент: Bearer access token в памяти + sessionStorage (переживает перезагрузку вкладки).
+ * Refresh token — в httpOnly cookie (бэкенд). При 401: один общий refresh, повтор запросов.
  */
 import { API_V1, ROUTES } from "@/shared/config";
 import { ApiError, getAccessTokenFromResponse, type FeatureGatedBody } from "./types";
 import type { AuthResponse } from "./types";
 
-let accessToken: string | null = null;
+const STORAGE_KEY = "fintrack_access_token";
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (token) sessionStorage.setItem(STORAGE_KEY, token);
+    else sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+let accessToken: string | null = getStoredToken();
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
+  setStoredToken(token);
 }
 
 export type RequestConfig = RequestInit & {
   basePath?: string;
 };
 
-/** Обновление сессии: refresh token берётся из cookie (credentials: "include"). */
+let refreshPromise: Promise<string> | null = null;
+
+/** Один refresh на все параллельные 401 — остальные ждут тот же промис. */
 async function doRefresh(): Promise<string> {
-  const res = await fetch(`${API_V1}/auth/refresh`, {
-    method: "POST",
-    credentials: "include", // отправляем httpOnly cookie с refresh token
-    headers: { "Content-Type": "application/json" },
-  });
-  if (!res.ok) throw new ApiError("Session expired", res.status);
-  const data = (await res.json()) as AuthResponse;
-  accessToken = getAccessTokenFromResponse(data);
-  return accessToken;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const res = await fetch(`${API_V1}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) throw new ApiError("Session expired", res.status);
+    const data = (await res.json()) as AuthResponse;
+    const token = getAccessTokenFromResponse(data);
+    accessToken = token;
+    setStoredToken(token);
+    return token;
+  })();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }
 
 export async function apiClient<T>(
@@ -57,13 +89,11 @@ export async function apiClient<T>(
       await doRefresh();
       return apiClient<T>(path, options, true);
     } catch (err) {
-      if (
-        typeof window !== "undefined" &&
-        err instanceof ApiError &&
-        err.status === 401 &&
-        window.location.pathname !== ROUTES.home
-      ) {
-        window.location.href = ROUTES.login;
+      if (typeof window !== "undefined" && err instanceof ApiError && err.status === 401) {
+        const pathname = window.location.pathname;
+        const isAuthPage = pathname === ROUTES.login || pathname === ROUTES.register ||
+          pathname === ROUTES.forgotPassword || pathname.startsWith("/auth/");
+        if (!isAuthPage) window.location.href = ROUTES.login;
       }
       throw err;
     }

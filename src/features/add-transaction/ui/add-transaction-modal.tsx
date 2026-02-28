@@ -99,7 +99,10 @@ export function AddTransactionModal({
 
   const handleSubmit = async () => {
     if (!canSubmit || !categoryId || !accountId) return;
-    const amountMinor = -Math.round(amountNum * 100);
+    const category = categories.find((c) => c.id === categoryId);
+    // Доход (Зарплата и др.) — положительная сумма, расход — отрицательная
+    const isIncome = category?.type === "income";
+    const amountMinor = isIncome ? Math.round(amountNum) : -Math.round(amountNum);
     const date = new Date().toISOString().slice(0, 10);
     setSubmitting(true);
     setFormError(null);
@@ -163,7 +166,9 @@ export function AddTransactionModal({
         {step === 1 && (
           <div className="space-y-3">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
-              <p className="mono text-xs text-[var(--ink-muted)]">Сумма (расход)</p>
+              <p className="mono text-xs text-[var(--ink-muted)]">
+                Сумма {categoryId ? (categories.find((c) => c.id === categoryId)?.type === "income" ? "(доход)" : "(расход)") : ""}
+              </p>
               <p className="mono mt-1 text-3xl font-semibold text-[var(--ink-strong)]">
                 {amountDisplay} ₸
               </p>
@@ -209,7 +214,7 @@ export function AddTransactionModal({
         {step === 3 && (
           <div className="space-y-3">
             <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-              Счёт списания
+              {categories.find((c) => c.id === categoryId)?.type === "income" ? "Счёт зачисления" : "Счёт списания"}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {loading ? (

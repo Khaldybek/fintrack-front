@@ -102,7 +102,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
           <div>
             <p className="metric-label">Разбивка по категориям</p>
             <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-              Итого: {(totalAbs / 100).toLocaleString("ru-KZ")} ₸
+              Итого: {totalAbs.toLocaleString("ru-KZ")} ₸
             </h3>
           </div>
           <button className="tx-inline-btn" onClick={onClose} type="button">
@@ -168,7 +168,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
             >
               {isBalanced
                 ? "Сумма сходится ✓"
-                : `Остаток: ${diff > 0 ? "+" : ""}${(diff / 100).toLocaleString("ru-KZ")} ₸`}
+                : `Остаток: ${diff > 0 ? "+" : ""}${diff.toLocaleString("ru-KZ")} ₸`}
             </div>
           </div>
         )}
