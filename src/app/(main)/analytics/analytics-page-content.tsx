@@ -141,8 +141,18 @@ export function AnalyticsPageContent() {
   const handleExportPdf = async () => {
     setExporting(true);
     try {
-      const res = await exportMonthlyReport({ year: currentYear, month: now.getMonth() + 1 });
-      if (res?.url) window.open(res.url, "_blank");
+      const { blob, filename } = await exportMonthlyReport({
+        year: currentYear,
+        month: now.getMonth() + 1,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } finally {
       setExporting(false);
     }

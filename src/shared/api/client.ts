@@ -137,3 +137,54 @@ export async function apiClient<T>(
   }
   return res.text() as Promise<T>;
 }
+
+/**
+ * Как apiClient, но возвращает сырой Response (нужен для скачивания файлов).
+ * Auth, 401-retry и redirect на логин — те же правила.
+ */
+export async function apiClientRaw(
+  path: string,
+  options?: RequestConfig,
+  isRetry = false,
+): Promise<Response> {
+  const basePath = options?.basePath ?? API_V1;
+  const { basePath: _, ...init } = options ?? {};
+  const url = path.startsWith("http") ? path : `${basePath}${path}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string>),
+  };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const res = await fetch(url, { ...init, credentials: "include", headers });
+
+  if (res.status === 401 && !isRetry && !path.includes("/auth/refresh")) {
+    try {
+      await doRefresh();
+      return apiClientRaw(path, options, true);
+    } catch (err) {
+      if (typeof window !== "undefined" && err instanceof ApiError && err.status === 401) {
+        const pathname = window.location.pathname;
+        const isAuthPage = pathname === ROUTES.login || pathname === ROUTES.register ||
+          pathname === ROUTES.forgotPassword || pathname.startsWith("/auth/");
+        if (!isAuthPage) window.location.href = ROUTES.login;
+      }
+      throw err;
+    }
+  }
+
+  if (!res.ok) {
+    let body: unknown;
+    try { body = await res.json(); } catch { body = await res.text(); }
+    throw new ApiError(
+      typeof body === "object" && body !== null && "message" in body
+        ? String((body as { message: string }).message)
+        : `API error: ${res.status}`,
+      res.status,
+      body,
+    );
+  }
+
+  return res;
+}

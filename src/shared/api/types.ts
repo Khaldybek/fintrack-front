@@ -816,8 +816,9 @@ export interface MonthlyReportExportBody {
   month?: number;
 }
 
+/** @deprecated API теперь возвращает PDF-blob напрямую */
 export interface MonthlyReportExportResponse {
-  url: string;
+  url?: string;
 }
 
 export interface FeatureGatedBody {

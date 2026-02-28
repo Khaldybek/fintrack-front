@@ -2,7 +2,7 @@
  * API аналитики: monthly, categories, trends, heatmap, anomalies,
  * top-categories, savings-rate, compare, export
  */
-import { apiClient } from "./client";
+import { apiClient, apiClientRaw } from "./client";
 import type {
   AnalyticsMonthlyResponse,
   AnalyticsCategoriesQuery,
@@ -93,15 +93,21 @@ export async function getAnalyticsCompare(
   return apiClient<AnalyticsCompareResponse>(`/analytics/compare?${search}`);
 }
 
-/** POST /v1/analytics/monthly-report/export */
+/** POST /v1/analytics/monthly-report/export → PDF-файл (blob) */
 export async function exportMonthlyReport(
   body?: MonthlyReportExportBody,
-): Promise<MonthlyReportExportResponse> {
-  return apiClient<MonthlyReportExportResponse>(
-    "/analytics/monthly-report/export",
-    {
-      method: "POST",
-      body: JSON.stringify(body ?? {}),
-    },
-  );
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await apiClientRaw("/analytics/monthly-report/export", {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+  const year = body?.year ?? new Date().getFullYear();
+  const month = String(body?.month ?? new Date().getMonth() + 1).padStart(2, "0");
+  const filename = match?.[1]?.trim() ?? `monthly-report-${year}-${month}.pdf`;
+
+  const blob = await res.blob();
+  return { blob, filename };
 }
