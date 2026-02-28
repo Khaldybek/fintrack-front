@@ -69,6 +69,9 @@ export {
   getAnalyticsTrends,
   getAnalyticsHeatmap,
   getAnalyticsAnomalies,
+  getAnalyticsTopCategories,
+  getAnalyticsSavingsRate,
+  getAnalyticsCompare,
   exportMonthlyReport,
 } from "./analytics";
 export {
@@ -187,6 +190,15 @@ export type {
   AnalyticsHeatmapResponse,
   AnalyticsAnomalyItem,
   AnalyticsAnomaliesResponse,
+  AnalyticsTopCategoryItem,
+  AnalyticsTopCategoriesQuery,
+  AnalyticsTopCategoriesResponse,
+  AnalyticsSavingsRateItem,
+  AnalyticsSavingsRateResponse,
+  AnalyticsComparePeriod,
+  AnalyticsCompareDiff,
+  AnalyticsCompareQuery,
+  AnalyticsCompareResponse,
   MonthlyReportExportBody,
   MonthlyReportExportResponse,
 } from "./types";

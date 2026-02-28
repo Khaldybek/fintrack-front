@@ -1,5 +1,6 @@
 /**
- * API аналитики: monthly, categories, trends, heatmap, anomalies, export
+ * API аналитики: monthly, categories, trends, heatmap, anomalies,
+ * top-categories, savings-rate, compare, export
  */
 import { apiClient } from "./client";
 import type {
@@ -9,6 +10,11 @@ import type {
   AnalyticsTrendsResponse,
   AnalyticsHeatmapResponse,
   AnalyticsAnomaliesResponse,
+  AnalyticsTopCategoriesQuery,
+  AnalyticsTopCategoriesResponse,
+  AnalyticsSavingsRateResponse,
+  AnalyticsCompareQuery,
+  AnalyticsCompareResponse,
   MonthlyReportExportBody,
   MonthlyReportExportResponse,
 } from "./types";
@@ -39,15 +45,55 @@ export async function getAnalyticsTrends(
   return apiClient<AnalyticsTrendsResponse>(path);
 }
 
-export async function getAnalyticsHeatmap(): Promise<AnalyticsHeatmapResponse> {
-  return apiClient<AnalyticsHeatmapResponse>("/analytics/heatmap");
+/** GET /v1/analytics/heatmap?days=90 */
+export async function getAnalyticsHeatmap(
+  days?: number,
+): Promise<AnalyticsHeatmapResponse> {
+  const path = days != null ? `/analytics/heatmap?days=${days}` : "/analytics/heatmap";
+  return apiClient<AnalyticsHeatmapResponse>(path);
 }
 
 export async function getAnalyticsAnomalies(): Promise<AnalyticsAnomaliesResponse> {
   return apiClient<AnalyticsAnomaliesResponse>("/analytics/anomalies");
 }
 
-/** POST /v1/analytics/monthly-report/export — экспорт месячного отчёта */
+/** GET /v1/analytics/top-categories */
+export async function getAnalyticsTopCategories(
+  query?: AnalyticsTopCategoriesQuery,
+): Promise<AnalyticsTopCategoriesResponse> {
+  const search = new URLSearchParams();
+  if (query?.dateFrom) search.set("dateFrom", query.dateFrom);
+  if (query?.dateTo) search.set("dateTo", query.dateTo);
+  if (query?.limit != null) search.set("limit", String(query.limit));
+  const qs = search.toString();
+  return apiClient<AnalyticsTopCategoriesResponse>(
+    qs ? `/analytics/top-categories?${qs}` : "/analytics/top-categories",
+  );
+}
+
+/** GET /v1/analytics/savings-rate?months=6 */
+export async function getAnalyticsSavingsRate(
+  months?: number,
+): Promise<AnalyticsSavingsRateResponse> {
+  const path =
+    months != null ? `/analytics/savings-rate?months=${months}` : "/analytics/savings-rate";
+  return apiClient<AnalyticsSavingsRateResponse>(path);
+}
+
+/** GET /v1/analytics/compare?aFrom=...&aTo=...&bFrom=...&bTo=... */
+export async function getAnalyticsCompare(
+  query: AnalyticsCompareQuery,
+): Promise<AnalyticsCompareResponse> {
+  const search = new URLSearchParams({
+    aFrom: query.aFrom,
+    aTo: query.aTo,
+    bFrom: query.bFrom,
+    bTo: query.bTo,
+  });
+  return apiClient<AnalyticsCompareResponse>(`/analytics/compare?${search}`);
+}
+
+/** POST /v1/analytics/monthly-report/export */
 export async function exportMonthlyReport(
   body?: MonthlyReportExportBody,
 ): Promise<MonthlyReportExportResponse> {

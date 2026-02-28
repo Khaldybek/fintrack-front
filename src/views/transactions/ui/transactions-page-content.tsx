@@ -24,6 +24,14 @@ const MONTH_NAMES = [
   "июл", "авг", "сен", "окт", "ноя", "дек",
 ];
 
+/** Локальная дата в формате YYYY-MM-DD (без сдвига в UTC). */
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function formatDayLabel(dateStr: string, today: string, yesterday: string): string {
   const d = dateStr.slice(0, 10);
   if (d === today) return "Сегодня";
@@ -84,8 +92,14 @@ export function TransactionsPageContent() {
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => {
+    const n = new Date();
+    return toLocalDateString(new Date(n.getFullYear(), n.getMonth(), 1));
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    const n = new Date();
+    return toLocalDateString(new Date(n.getFullYear(), n.getMonth() + 1, 0));
+  });
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [loading, setLoading] = useState(true);
@@ -97,15 +111,15 @@ export function TransactionsPageContent() {
   const [showManageTemplates, setShowManageTemplates] = useState(false);
 
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = toLocalDateString(now);
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const yesterdayStr = toLocalDateString(yesterday);
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const defaultDateFrom = monthStart.toISOString().slice(0, 10);
-  const defaultDateTo = monthEnd.toISOString().slice(0, 10);
+  const defaultDateFrom = toLocalDateString(monthStart);
+  const defaultDateTo = toLocalDateString(monthEnd);
 
   const loadTemplates = useCallback(() => {
     getTransactionTemplates()

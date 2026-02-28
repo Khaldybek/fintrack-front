@@ -489,31 +489,116 @@ export interface AnalyticsTrendsResponse {
   items: AnalyticsTrendItem[];
 }
 
-/** Элемент GET /v1/analytics/heatmap — день в календаре */
+/** Элемент GET /v1/analytics/heatmap */
 export interface AnalyticsHeatmapDay {
+  /** Новый API: YYYY-MM-DD */
+  day?: string;
+  /** Сумма расходов за день */
+  total?: MoneyDto | string;
+  total_minor?: number;
+  /** Интенсивность 0–100 для цвета */
+  intensity?: number;
+  /** Устаревшие поля (старый стаб) */
   date?: string;
   level?: number;
   anomaly?: boolean;
 }
 
-/** GET /v1/analytics/heatmap (stub) */
+/** GET /v1/analytics/heatmap */
 export interface AnalyticsHeatmapResponse {
   days: AnalyticsHeatmapDay[];
-  explanation: string;
+  explanation?: string;
 }
 
 /** Элемент GET /v1/analytics/anomalies */
 export interface AnalyticsAnomalyItem {
+  /** Новый API */
+  month?: string;
+  expense?: MoneyDto | string;
+  avg_expense?: MoneyDto | string;
+  deviation_pct?: number;
+  /** Устаревшие поля (старый стаб) */
   id?: string;
   period?: string;
   note?: string;
   explanation?: string;
 }
 
-/** GET /v1/analytics/anomalies (stub) */
+/** GET /v1/analytics/anomalies */
 export interface AnalyticsAnomaliesResponse {
   items: AnalyticsAnomalyItem[];
   status: string;
+}
+
+/** GET /v1/analytics/top-categories */
+export interface AnalyticsTopCategoryItem {
+  rank: number;
+  categoryId: string;
+  name: string;
+  icon?: string | null;
+  expense: MoneyDto | string;
+  expense_minor?: number;
+  tx_count: number;
+  share_pct: number;
+}
+
+export interface AnalyticsTopCategoriesQuery {
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+}
+
+export interface AnalyticsTopCategoriesResponse {
+  date_from: string;
+  date_to: string;
+  items: AnalyticsTopCategoryItem[];
+  total_expense: MoneyDto | string;
+}
+
+/** GET /v1/analytics/savings-rate */
+export interface AnalyticsSavingsRateItem {
+  month: string;
+  income: MoneyDto | string;
+  expense: MoneyDto | string;
+  saved: MoneyDto | string;
+  saved_minor: number;
+  savings_rate_pct: number;
+  /** good ≥ 20%, attention 0–19%, risk < 0% */
+  status: "good" | "attention" | "risk" | string;
+}
+
+export interface AnalyticsSavingsRateResponse {
+  items: AnalyticsSavingsRateItem[];
+}
+
+/** GET /v1/analytics/compare */
+export interface AnalyticsComparePeriod {
+  date_from: string;
+  date_to?: string;
+  income: MoneyDto | string;
+  expense: MoneyDto | string;
+  net: MoneyDto | string;
+  tx_count: number;
+}
+
+export interface AnalyticsCompareDiff {
+  income_change: MoneyDto | string;
+  income_change_pct: number;
+  expense_change: MoneyDto | string;
+  expense_change_pct: number;
+}
+
+export interface AnalyticsCompareQuery {
+  aFrom: string;
+  aTo: string;
+  bFrom: string;
+  bTo: string;
+}
+
+export interface AnalyticsCompareResponse {
+  period_a: AnalyticsComparePeriod;
+  period_b: AnalyticsComparePeriod;
+  diff: AnalyticsCompareDiff;
 }
 
 /** Кредит (GET/POST/PATCH /v1/credits) */
