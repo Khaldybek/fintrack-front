@@ -227,6 +227,9 @@ export function DashboardPageContent() {
                     ? `До конца месяца ${forecast.days_left} дн. ${forecast.severity === "good" ? "· всё хорошо ✓" : `· ${forecast.explanation}`}`
                     : "—"}
                 </p>
+                {forecast?.explanationAi && (
+                  <p className="mt-1.5 text-xs text-[var(--ink-muted)]">{forecast.explanationAi}</p>
+                )}
               </article>
 
               <article className="card metric-card loading-reveal stagger-3">
@@ -259,9 +262,14 @@ export function DashboardPageContent() {
                 <p className="metric-label">Прогноз до конца месяца</p>
                 <p className="mono metric-value">{projectedStr}</p>
                 {forecast && (
-                  <p className={`metric-hint ${severityTextClass(forecast.severity)}`}>
-                    {forecast.explanation}
-                  </p>
+                  <>
+                    <p className={`metric-hint ${severityTextClass(forecast.severity)}`}>
+                      {forecast.explanation}
+                    </p>
+                    {forecast.explanationAi && (
+                      <p className="mt-1.5 text-xs text-[var(--ink-muted)]">{forecast.explanationAi}</p>
+                    )}
+                  </>
                 )}
               </article>
             </div>
@@ -432,6 +440,9 @@ export function DashboardPageContent() {
                 </div>
                 {forecast.explanation && (
                   <p className={`mt-3 text-xs ${severityTextClass(forecast.severity)}`}>{forecast.explanation}</p>
+                )}
+                {forecast.explanationAi && (
+                  <p className="mt-1.5 text-xs text-[var(--ink-muted)]">{forecast.explanationAi}</p>
                 )}
               </article>
             )}

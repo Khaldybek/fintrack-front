@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { getCategories, getAccounts, updateTransaction } from "@/shared/api";
-import type { Transaction, Category, Account } from "@/shared/api";
+import {
+  getCategories,
+  getAccounts,
+  updateTransaction,
+  suggestCategoryTransaction,
+} from "@/shared/api";
+import type { Transaction, Category, Account, SuggestCategoryResponse } from "@/shared/api";
 
 export type EditTransactionModalProps = {
   transaction: Transaction;
@@ -39,6 +44,10 @@ export function EditTransactionModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+  const [suggestResult, setSuggestResult] = useState<SuggestCategoryResponse | null>(null);
+
   useEffect(() => {
     Promise.all([getCategories(), getAccounts()])
       .then(([cats, accs]) => {
@@ -55,6 +64,32 @@ export function EditTransactionModal({
   })();
 
   const canSubmit = amountMinor !== 0 && categoryId && accountId && date;
+
+  const handleSuggestCategory = async () => {
+    const memoText = memo.trim().slice(0, 500);
+    if (!memoText) return;
+    setSuggestError(null);
+    setSuggestResult(null);
+    setSuggestLoading(true);
+    try {
+      const res = await suggestCategoryTransaction({
+        memo: memoText,
+        amountMinor: amountMinor !== 0 ? amountMinor : undefined,
+      });
+      setSuggestResult(res);
+    } catch (err) {
+      setSuggestError((err as Error)?.message ?? "Не удалось подсказать категорию");
+    } finally {
+      setSuggestLoading(false);
+    }
+  };
+
+  const applySuggestCategory = () => {
+    if (!suggestResult?.categoryId || !categories.some((c) => c.id === suggestResult.categoryId)) return;
+    setCategoryId(suggestResult.categoryId);
+    if (suggestResult.merchantCanonical) setMemo(suggestResult.merchantCanonical);
+    setSuggestResult(null);
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -202,11 +237,67 @@ export function EditTransactionModal({
             <span>Комментарий</span>
             <input
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="Необязательно"
+              placeholder="Например: Yandex*Go Taxi"
               type="text"
               value={memo}
+              maxLength={500}
             />
           </label>
+
+          {/* Подсказка категории по memo (AI) */}
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
+            <p className="mono text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+              Подсказка категории по описанию (AI)
+            </p>
+            <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+              Введите текст операции и нажмите «Подсказать» — категория и мерчант подставятся автоматически.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="action-btn shrink-0 px-4"
+                onClick={handleSuggestCategory}
+                disabled={suggestLoading || !memo.trim()}
+              >
+                {suggestLoading ? "…" : "Подсказать"}
+              </button>
+            </div>
+            {suggestError && (
+              <p className="mt-2 text-sm text-[#9f1239]">{suggestError}</p>
+            )}
+            {suggestResult && (
+              <div className="mt-3 rounded-lg border border-[var(--line)] bg-white p-3">
+                <p className="text-sm font-semibold text-[var(--ink-strong)]">
+                  {suggestResult.categoryName}
+                  {suggestResult.merchantCanonical && (
+                    <span className="ml-1.5 font-normal text-[var(--ink-soft)]">
+                      — {suggestResult.merchantCanonical}
+                    </span>
+                  )}
+                </p>
+                {suggestResult.confidence < 0.7 && (
+                  <p className="mt-1 text-xs text-[#92400e]">Проверьте перед сохранением.</p>
+                )}
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    className="action-btn h-8 px-3 text-sm"
+                    onClick={applySuggestCategory}
+                    disabled={!suggestResult.categoryId || !categories.some((c) => c.id === suggestResult!.categoryId)}
+                  >
+                    Подставить
+                  </button>
+                  <button
+                    type="button"
+                    className="tx-inline-btn h-8 px-3 text-sm"
+                    onClick={() => setSuggestResult(null)}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {error && <div className="mt-3 alert alert-warn">{error}</div>}

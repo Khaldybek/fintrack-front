@@ -13,6 +13,7 @@ import {
   getAnalyticsTopCategories,
   getAnalyticsSavingsRate,
   getAnalyticsCompare,
+  getMonthlyReportSummary,
   exportMonthlyReport,
   getDashboardSummary,
   getDashboardIndex,
@@ -96,6 +97,7 @@ export function AnalyticsPageContent() {
   const [compare, setCompare] = useState<AnalyticsCompareResponse | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [index, setIndex] = useState<DashboardIndex | null>(null);
+  const [reportSummary, setReportSummary] = useState<{ summaryText: string; shareReadyText: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -114,8 +116,9 @@ export function AnalyticsPageContent() {
       getAnalyticsCompare({ aFrom: prevMonthStart, aTo: prevMonthEnd, bFrom: firstDayOfMonth, bTo: lastDayOfMonth }).catch(() => null),
       getDashboardSummary().catch(() => null),
       getDashboardIndex().catch(() => null),
+      getMonthlyReportSummary().catch(() => null),
     ])
-      .then(([catRes, monthlyRes, trendsRes, heatmapRes, anomaliesRes, topCatRes, savingsRes, compareRes, summaryRes, indexRes]) => {
+      .then(([catRes, monthlyRes, trendsRes, heatmapRes, anomaliesRes, topCatRes, savingsRes, compareRes, summaryRes, indexRes, reportSummaryRes]) => {
         setCategories(catRes.items ?? []);
         setTotalExpenseMinor(catRes.total_expense_minor ?? 0);
         setTotalExpenseStr(formatMoney(catRes.total_expense));
@@ -130,6 +133,7 @@ export function AnalyticsPageContent() {
         setCompare(compareRes ?? null);
         setSummary(summaryRes ?? null);
         setIndex(indexRes ?? null);
+        setReportSummary(reportSummaryRes ?? null);
       })
       .catch((err) => setError(err?.message ?? "Не удалось загрузить аналитику"))
       .finally(() => setLoading(false));
@@ -535,6 +539,13 @@ export function AnalyticsPageContent() {
               <p className="mono mt-2 text-2xl font-semibold text-[var(--ink-strong)]">
                 Баланс: {summary ? `${formatMoney(summary.balance)} ${summary.currency ?? ""}`.trim() : "—"}
               </p>
+              {reportSummary && (
+                <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">AI-резюме</p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-strong)]">{reportSummary.summaryText}</p>
+                  <p className="mt-2 text-xs text-[var(--ink-soft)]">{reportSummary.shareReadyText}</p>
+                </div>
+              )}
               <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
                 <div className="metric-row">
                   <span>Топ-категория</span>

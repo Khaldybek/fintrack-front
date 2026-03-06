@@ -35,6 +35,7 @@ export {
   createTransactionSplits,
   voiceParseTransaction,
   receiptOcrTransaction,
+  suggestCategoryTransaction,
 } from "./transactions";
 export {
   getDashboardIndex,
@@ -72,6 +73,7 @@ export {
   getAnalyticsTopCategories,
   getAnalyticsSavingsRate,
   getAnalyticsCompare,
+  getMonthlyReportSummary,
   exportMonthlyReport,
 } from "./analytics";
 export {
@@ -141,6 +143,8 @@ export type {
   VoiceParseBody,
   VoiceParseResponse,
   ReceiptOcrResponse,
+  SuggestCategoryBody,
+  SuggestCategoryResponse,
 } from "./types";
 export type {
   DashboardIndex,
@@ -199,6 +203,8 @@ export type {
   AnalyticsCompareDiff,
   AnalyticsCompareQuery,
   AnalyticsCompareResponse,
+  MonthlyReportSummaryQuery,
+  MonthlyReportSummaryResponse,
   MonthlyReportExportBody,
   MonthlyReportExportResponse,
 } from "./types";

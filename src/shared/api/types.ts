@@ -153,11 +153,12 @@ export interface TransactionSplitItem {
   amountMinor: number;
 }
 
+/** POST /v1/transactions/:id/splits — тело запроса разбивки по категориям (SetSplitsDto). */
 export interface CreateTransactionSplitsBody {
   splits: TransactionSplitItem[];
 }
 
-/** Транзакция (GET/POST/PATCH /v1/transactions). amount_minor: доход >0, расход <0 */
+/** Транзакция (GET /v1/transactions/:id, POST/PATCH /v1/transactions). amount_minor: доход >0, расход <0 */
 export interface Transaction {
   id: string;
   accountId: string;
@@ -174,15 +175,21 @@ export interface Transaction {
   splits?: TransactionSplit[];
 }
 
+/** GET /v1/transactions — список транзакций. Ответ 200: { items, total }. */
 export interface GetTransactionsQuery {
+  /** Фильтр по счёту (UUID) */
   accountId?: string;
+  /** Фильтр по категории (UUID) */
   categoryId?: string;
+  /** Начало периода, YYYY-MM-DD */
   dateFrom?: string;
+  /** Конец периода, YYYY-MM-DD */
   dateTo?: string;
+  /** Поиск по memo */
   search?: string;
-  /** Номер страницы (по умолчанию 1, max 500) */
+  /** Страница (по умолчанию 1) */
   page?: number;
-  /** Размер страницы (по умолчанию 20, max 100) */
+  /** На страницу (1–500, по умолчанию 20) */
   limit?: number;
 }
 
@@ -191,15 +198,23 @@ export interface GetTransactionsResponse {
   total: number;
 }
 
+/** POST /v1/transactions — создание транзакции. Ответ 201: объект созданной транзакции. */
 export interface CreateTransactionBody {
+  /** UUID счёта */
   accountId: string;
+  /** UUID категории */
   categoryId: string;
+  /** Сумма в минорах (расход < 0, доход > 0) */
   amountMinor: number;
-  currency?: string;
+  /** Дата в формате YYYY-MM-DD */
   date: string;
+  /** По умолчанию KZT */
+  currency?: string;
+  /** До 2000 символов */
   memo?: string;
 }
 
+/** PATCH /v1/transactions/:id — частичное обновление (все поля опциональны). */
 export interface UpdateTransactionBody {
   accountId?: string;
   categoryId?: string;
@@ -209,11 +224,12 @@ export interface UpdateTransactionBody {
   memo?: string;
 }
 
+/** DELETE /v1/transactions/:id — ответ при удалении (soft delete). */
 export interface DeleteTransactionResponse {
   success: true;
 }
 
-/** Шаблон транзакции (GET/POST /v1/transactions/templates) */
+/** Шаблон транзакции: GET /v1/transactions/templates, POST /v1/transactions/templates, DELETE /v1/transactions/templates/:id */
 export interface TransactionTemplate {
   id: string;
   name: string;
@@ -225,6 +241,7 @@ export interface TransactionTemplate {
   currency: string;
 }
 
+/** POST /v1/transactions/templates — создание шаблона. */
 export interface CreateTransactionTemplateBody {
   name: string;
   categoryId: string;
@@ -236,38 +253,66 @@ export interface CreateTransactionTemplateBody {
 export type DashboardSeverity = "good" | "attention" | "risk" | string;
 export type DashboardStatus = "stable" | "attention" | "risk" | string;
 
-/** GET /v1/dashboard/summary */
+/** GET /v1/dashboard/summary — границы месяца в ответе сводки. */
 export interface DashboardSummaryMonth {
   dateFrom: string;
   dateTo: string;
 }
 
+/**
+ * GET /v1/dashboard/summary — сводка дашборда.
+ * Ответ 200: баланс, доход и расход за текущий месяц, валюта, границы месяца.
+ */
 export interface DashboardSummary {
+  /** Баланс (форматированный или MoneyDto) */
   balance?: MoneyDto | string;
+  /** Баланс в минорных единицах */
   balance_total_minor: number;
+  /** Валюта (например KZT) */
   currency: string;
+  /** Границы текущего месяца */
   month: DashboardSummaryMonth;
+  /** Доход за месяц (форматированный или MoneyDto) */
   income?: MoneyDto | string;
+  /** Доход за месяц в минорах */
   income_minor: number;
+  /** Расход за месяц (форматированный или MoneyDto) */
   expense?: MoneyDto | string;
+  /** Расход за месяц в минорах */
   expense_minor: number;
+  /** Подсказка таймзоны для отображения дат */
   timezone_hint?: string;
 }
 
-/** GET /v1/dashboard/forecast */
+/**
+ * GET /v1/dashboard/forecast — прогноз с AI-объяснением.
+ * Ответ 200: balance, projected_balance (object: amount_minor, currency, formatted), date_to, days_left, status, severity, explanation (всегда), explanationAi (опционально).
+ * Если AI выключен или ошибка — приходит только explanation, explanationAi может отсутствовать.
+ */
 export interface DashboardForecast {
+  /** Текущий баланс (amount_minor, currency, formatted) */
   balance?: MoneyDto | string;
+  /** Прогноз на конец месяца */
   projected_balance?: MoneyDto | string;
+  /** Прогноз на конец месяца числом (миноры) */
   projected_balance_minor: number;
+  /** Конец месяца YYYY-MM-DD */
   date_to: string;
+  /** Дней до конца месяца */
   days_left: number;
+  /** "stable" | "attention" | "risk" */
   status: DashboardStatus;
+  /** "good" | "attention" | "risk" */
   severity: DashboardSeverity;
+  /** Текстовое объяснение (всегда) */
   explanation: string;
+  /** Краткое объяснение от AI (1–2 предложения), опционально */
+  explanationAi?: string;
+  /** Таймзона пользователя */
   timezone_hint?: string;
 }
 
-/** Элемент GET /v1/dashboard/alerts */
+/** Элемент GET /v1/dashboard/alerts — алерт (минус баланс, низкий остаток, зарплата и т.д.). */
 export interface DashboardAlert {
   type: string;
   severity: DashboardSeverity;
@@ -276,19 +321,27 @@ export interface DashboardAlert {
   amount?: MoneyDto | string;
 }
 
+/** GET /v1/dashboard/alerts — алерты дашборда. */
 export interface DashboardAlertsResponse {
   items: DashboardAlert[];
   timezone_hint?: string;
 }
 
-/** GET /v1/dashboard/insight */
+/**
+ * GET /v1/dashboard/insight — инсайт дня (AI).
+ * Один персонализированный совет на основе баланса и прогноза. Кеш на бэкенде ~6 ч.
+ * Ответ 200:
+ */
 export interface DashboardInsight {
+  /** Текст совета (1–2 предложения) */
   text: string;
+  /** "good" | "attention" | "risk" */
   severity: DashboardSeverity;
+  /** "stable" | "attention" | "risk" */
   status: DashboardStatus;
 }
 
-/** GET/POST /v1/dashboard/salary-schedules */
+/** GET /v1/dashboard/salary-schedules — элемент расписания зарплат. */
 export interface SalarySchedule {
   id: string;
   dayOfMonth: number;
@@ -296,11 +349,13 @@ export interface SalarySchedule {
   createdAt: string;
 }
 
+/** POST /v1/dashboard/salary-schedules — добавить расписание (body: dayOfMonth, label). */
 export interface CreateSalaryScheduleBody {
   dayOfMonth: number;
   label?: string;
 }
 
+/** DELETE /v1/dashboard/salary-schedules/:id — ответ при удалении. */
 export interface DeleteSalaryScheduleResponse {
   success: true;
 }
@@ -776,7 +831,7 @@ export interface PatchHouseholdMemberBody {
   role: HouseholdMemberRole;
 }
 
-/** GET /v1/dashboard/index — финансовый индекс (Pro) */
+/** GET /v1/dashboard/index — фактор индекса (положительный или отрицательный). */
 export interface DashboardIndexFactor {
   label: string;
   score: number;
@@ -784,6 +839,7 @@ export interface DashboardIndexFactor {
 
 export type DashboardIndexStatus = "stable" | "attention" | "risk";
 
+/** GET /v1/dashboard/index — финансовый индекс 0–100 и факторы. */
 export interface DashboardIndex {
   score: number;
   status: DashboardIndexStatus;
@@ -796,18 +852,66 @@ export interface VoiceParseBody {
   text: string;
 }
 
+/** POST /v1/transactions/voice-parse — умный ввод из текста/голоса (AI) */
 export interface VoiceParseResponse {
   amountMinor: number;
   categoryId: string | null;
+  date: string;
   memo: string | null;
+  accountId: string | null;
+  /** 0–1; при < 0.7 лучше показать «Проверьте» */
+  confidence: number;
 }
 
-/** POST /v1/transactions/receipt-ocr */
+/** POST /v1/transactions/receipt-ocr — чек по фото (AI). При ошибке/нечитаемом фото поля приходят пустыми/нулевыми. */
 export interface ReceiptOcrResponse {
+  /** Сумма (расход отрицательный), 0 если не распознано */
   amountMinor: number;
+  /** YYYY-MM-DD или null */
   date: string | null;
+  /** Название магазина */
   memo: string | null;
+  /** Подсказка категории */
   categoryId: string | null;
+  /** Пока всегда пустой массив; может отсутствовать в ответе */
+  items?: unknown[];
+}
+
+/** POST /v1/transactions/suggest-category — подсказка категории по memo (AI) */
+export interface SuggestCategoryBody {
+  /** Текст операции, до 500 символов */
+  memo: string;
+  /** Сумма в минорах (опционально) */
+  amountMinor?: number;
+}
+
+export interface SuggestCategoryResponse {
+  categoryId: string | null;
+  categoryName: string;
+  /** Нормализованное имя мерчанта */
+  merchantCanonical: string;
+  /** 0–1 */
+  confidence: number;
+}
+
+/** GET /v1/analytics/monthly-report/summary — query-параметры (year, month — по умолчанию текущие). */
+export interface MonthlyReportSummaryQuery {
+  /** Год (например 2025). По умолчанию — текущий */
+  year?: string;
+  /** Месяц 1–12. По умолчанию — текущий */
+  month?: string;
+}
+
+/**
+ * GET /v1/analytics/monthly-report/summary — AI-резюме месячного отчёта.
+ * Ответ 200: summaryText (короткий абзац), shareReadyText (строка для шаринга).
+ * Если нет данных за месяц: оба поля — «Нет данных за период.»
+ */
+export interface MonthlyReportSummaryResponse {
+  /** Короткий абзац: доход, расход, топ категорий, накопления */
+  summaryText: string;
+  /** Одна короткая строка для шаринга (можно с эмодзи) */
+  shareReadyText: string;
 }
 
 /** POST /v1/analytics/monthly-report/export */

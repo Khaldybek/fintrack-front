@@ -165,6 +165,9 @@ export function CashflowPageContent() {
             <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
               {forecast?.explanation || insight?.text}
             </p>
+            {forecast?.explanationAi && (
+              <p className="mt-2 text-xs text-[var(--ink-muted)]">{forecast.explanationAi}</p>
+            )}
           </article>
         </aside>
       </section>

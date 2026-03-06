@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AddTransactionModal } from "@/features/add-transaction";
+import type { AddTransactionModalHandle } from "@/features/add-transaction";
 import { EditTransactionModal } from "@/features/edit-transaction";
 import { SetSplitsModal } from "@/features/set-splits";
 import { ManageTemplatesModal } from "@/features/manage-templates";
@@ -110,6 +111,8 @@ export function TransactionsPageContent() {
   const [splittingTx, setSplittingTx] = useState<Transaction | null>(null);
   const [showManageTemplates, setShowManageTemplates] = useState(false);
 
+  const addModalRef = useRef<AddTransactionModalHandle>(null);
+
   const now = new Date();
   const today = toLocalDateString(now);
   const yesterday = new Date(now);
@@ -211,6 +214,7 @@ export function TransactionsPageContent() {
       eyebrow="FinTrack Transactions"
       actionAs={
         <AddTransactionModal
+          ref={addModalRef}
           triggerLabel="+ Добавить"
           triggerClassName="action-btn"
           onSuccess={load}
@@ -467,12 +471,16 @@ export function TransactionsPageContent() {
               Кнопка «+ Добавить» в шапке открывает форму: сумма → категория → счёт.
             </p>
             <div className="mt-4 space-y-2">
-              <button className="tx-side-btn w-full" type="button" disabled>
-                Сканировать чек камерой (скоро)
+              <button
+                className="tx-side-btn w-full"
+                type="button"
+                onClick={() => addModalRef.current?.openWithReceipt()}
+              >
+                Сканировать чек по фото
               </button>
-              <button className="tx-side-btn w-full" type="button" disabled>
-                Голос: «1500 на такси» (скоро)
-              </button>
+              <p className="text-xs text-[var(--ink-muted)]">
+                Или нажмите «+ Добавить» и в модалке выберите «Выбрать фото чека».
+              </p>
             </div>
           </article>
 

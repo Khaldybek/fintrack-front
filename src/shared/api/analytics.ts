@@ -15,6 +15,8 @@ import type {
   AnalyticsSavingsRateResponse,
   AnalyticsCompareQuery,
   AnalyticsCompareResponse,
+  MonthlyReportSummaryQuery,
+  MonthlyReportSummaryResponse,
   MonthlyReportExportBody,
   MonthlyReportExportResponse,
 } from "./types";
@@ -91,6 +93,18 @@ export async function getAnalyticsCompare(
     bTo: query.bTo,
   });
   return apiClient<AnalyticsCompareResponse>(`/analytics/compare?${search}`);
+}
+
+/** GET /v1/analytics/monthly-report/summary — AI-резюме месячного отчёта (summaryText, shareReadyText). */
+export async function getMonthlyReportSummary(
+  query?: MonthlyReportSummaryQuery,
+): Promise<MonthlyReportSummaryResponse> {
+  const params = new URLSearchParams();
+  if (query?.year) params.set("year", query.year);
+  if (query?.month) params.set("month", query.month);
+  const qs = params.toString();
+  const path = qs ? `/analytics/monthly-report/summary?${qs}` : "/analytics/monthly-report/summary";
+  return apiClient<MonthlyReportSummaryResponse>(path);
 }
 
 /** POST /v1/analytics/monthly-report/export → PDF-файл (blob) */

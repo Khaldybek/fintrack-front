@@ -73,9 +73,11 @@ export async function apiClient<T>(
   const url = path.startsWith("http") ? path : `${basePath}${path}`;
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(init.headers as Record<string, string>),
   };
+  if (!(init.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   const res = await fetch(url, {
