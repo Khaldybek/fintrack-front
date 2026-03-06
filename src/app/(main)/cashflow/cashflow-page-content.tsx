@@ -83,7 +83,7 @@ export function CashflowPageContent() {
     ? {
         day: formatDateShort(forecast.date_to),
         balance: moneyDisplay(forecast.projected_balance ?? (forecast.projected_balance_minor != null ? { amount_minor: forecast.projected_balance_minor, currency: "₸" } : null)),
-        risk: forecast.severity as "normal" | "warn" | "good",
+        risk: forecast.severity as "normal" | "warn" | "good" | "risk",
       }
     : null;
 
