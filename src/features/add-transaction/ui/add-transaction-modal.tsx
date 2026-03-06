@@ -256,9 +256,9 @@ const AddTransactionModalInner = forwardRef<
   const handleSubmit = async () => {
     if (!canSubmit || !categoryId || !accountId) return;
     const category = categories.find((c) => c.id === categoryId);
-    // Доход — положительная сумма, расход — отрицательная. amountNum в целых единицах (₸), API ждёт минорные (1 ₸ = 100).
+    // Доход — положительная сумма, расход — отрицательная. API принимает сумму в целых единицах (₸), не в тиынах.
     const isIncome = category?.type === "income";
-    const amountMinor = isIncome ? Math.round(amountNum * 100) : -Math.round(amountNum * 100);
+    const amountMinor = isIncome ? Math.round(amountNum) : -Math.round(amountNum);
     setSubmitting(true);
     setFormError(null);
     try {

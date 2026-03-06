@@ -82,7 +82,7 @@ export function LoginForm() {
             Запомнить меня
           </label>
           <Link
-            className="text-sm font-semibold text-[var(--ink-soft)]"
+            className="text-sm font-semibold text-[var(--ink-strong)] hover:underline"
             href={ROUTES.forgotPassword}
           >
             Забыли пароль?

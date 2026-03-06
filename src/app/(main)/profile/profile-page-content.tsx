@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/app/providers/auth-provider";
 import { ActionInfoModal } from "@/shared/ui";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 import { AddAccountModal, EditAccountModal } from "@/features/add-account";
 import { getMe, getMePlan, getAccounts, deleteAccount } from "@/shared/api";
 import type { Profile, PlanResponse, Account } from "@/shared/api";
+import { ROUTES } from "@/shared/config";
 
 const localeLabel: Record<string, string> = {
   ru: "Русский",
@@ -15,6 +18,7 @@ const localeLabel: Record<string, string> = {
 };
 
 export function ProfilePageContent() {
+  const { logout } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -24,6 +28,7 @@ export function ProfilePageContent() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const loadAccounts = useCallback(() => {
     getAccounts()
@@ -99,6 +104,24 @@ export function ProfilePageContent() {
       subtitle="Настройки безопасности, валюты и подписки в одном месте."
     >
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr]">
+        <div className="xl:col-span-2 flex justify-end">
+          <button
+            type="button"
+            className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-2 text-sm font-medium text-[var(--ink-soft)] transition hover:bg-[var(--surface-3)] hover:text-[var(--ink-strong)] disabled:opacity-60"
+            onClick={async () => {
+              setLoggingOut(true);
+              try {
+                await logout();
+              } finally {
+                setLoggingOut(false);
+              }
+            }}
+            disabled={loggingOut}
+          >
+            {loggingOut ? "Выход…" : "Выйти из аккаунта"}
+          </button>
+        </div>
+
         <article className="card p-5 md:p-6">
           <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
             Аккаунт
@@ -187,10 +210,36 @@ export function ProfilePageContent() {
           <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
             Безопасность
           </h2>
-          <div className="mt-4 space-y-3">
-            <div className="alert">Face ID / Touch ID: включено</div>
-            <div className="alert">Двухфакторная аутентификация: активна</div>
-            <div className="alert">Уведомления о входе: включены</div>
+          <p className="mt-1 text-sm text-[var(--ink-soft)]">
+            Сброс пароля, сессии и история входов.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <Link
+              href={ROUTES.forgotPassword}
+              className="flex flex-col gap-0.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 transition hover:bg-[var(--surface-3)]"
+            >
+              <span className="flex items-center justify-between text-sm font-medium text-[var(--ink-strong)]">
+                Сброс пароля (Reset password)
+                <span className="text-[var(--ink-muted)]">→</span>
+              </span>
+              <span className="text-xs text-[var(--ink-muted)]">
+                Забыли пароль? Отправим ссылку на email для смены пароля.
+              </span>
+            </Link>
+            <Link
+              href={ROUTES.security}
+              className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--ink-strong)] transition hover:bg-[var(--surface-3)]"
+            >
+              <span>Сессии и устройства</span>
+              <span className="text-[var(--ink-muted)]">→</span>
+            </Link>
+            <Link
+              href={ROUTES.notifications}
+              className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--ink-strong)] transition hover:bg-[var(--surface-3)]"
+            >
+              <span>Уведомления</span>
+              <span className="text-[var(--ink-muted)]">→</span>
+            </Link>
           </div>
         </article>
 

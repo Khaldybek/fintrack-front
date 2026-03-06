@@ -65,8 +65,8 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
   };
 
   const handleCreate = async () => {
-    const amount = parseInt(amountRaw.replace(/\D/g, ""), 10);
-    if (!name.trim() || !categoryId || !amount) {
+    const amountNum = parseFloat(amountRaw.replace(/\s/g, "").replace(",", ".")) || 0;
+    if (!name.trim() || !categoryId || !Number.isFinite(amountNum) || amountNum <= 0) {
       setCreateError("Заполните название, категорию и сумму.");
       return;
     }
@@ -76,7 +76,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
       const tmpl = await createTransactionTemplate({
         name: name.trim(),
         categoryId,
-        amountMinor: -amount,
+        amountMinor: -Math.round(amountNum * 100),
       });
       setTemplates((prev) => [...prev, tmpl]);
       setName("");

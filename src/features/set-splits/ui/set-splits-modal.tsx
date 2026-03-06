@@ -21,17 +21,19 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
+/** Сумма транзакции в минорных единицах (100 = 1 ₸). В форме показываем и вводим в целых (₸). */
 export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsModalProps) {
-  const totalAbs = Math.abs(transaction.amount_minor);
+  const totalAbsMinor = Math.abs(transaction.amount_minor);
+  const totalAbsMajor = Math.round(totalAbsMinor / 100);
 
   const initialRows: SplitRow[] = transaction.splits?.length
     ? transaction.splits.map((s) => ({
         id: uid(),
         categoryId: s.categoryId,
-        amountRaw: String(Math.abs(s.amountMinor)),
+        amountRaw: String(Math.round(Math.abs(s.amountMinor) / 100)),
       }))
     : [
-        { id: uid(), categoryId: transaction.categoryId, amountRaw: String(totalAbs) },
+        { id: uid(), categoryId: transaction.categoryId, amountRaw: String(totalAbsMajor) },
         { id: uid(), categoryId: transaction.categoryId, amountRaw: "" },
       ];
 
@@ -60,25 +62,27 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
   const updateRow = (id: string, field: keyof Omit<SplitRow, "id">, value: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
 
-  const sumMinor = rows.reduce((acc, r) => acc + (parseInt(r.amountRaw, 10) || 0), 0);
-  const diff = totalAbs - sumMinor;
-  const isBalanced = diff === 0;
+  const sumMajor = rows.reduce((acc, r) => acc + (parseFloat(r.amountRaw.replace(/\s/g, "")) || 0), 0);
+  const sumMinor = Math.round(sumMajor * 100);
+  const diffMinor = totalAbsMinor - sumMinor;
+  const isBalanced = diffMinor === 0;
 
   const handleSubmit = async () => {
     if (!isBalanced) {
-      setError(`Сумма разбивки (${sumMinor}) не равна сумме транзакции (${totalAbs}).`);
+      setError(`Сумма разбивки (${sumMajor.toLocaleString("ru-KZ")} ₸) не равна сумме транзакции (${totalAbsMajor.toLocaleString("ru-KZ")} ₸).`);
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const splits = rows.map((r) => ({
-        categoryId: r.categoryId,
-        amountMinor:
-          transaction.amount_minor < 0
-            ? -(parseInt(r.amountRaw, 10) || 0)
-            : parseInt(r.amountRaw, 10) || 0,
-      }));
+      const splits = rows.map((r) => {
+        const amountMajor = parseFloat(r.amountRaw.replace(/\s/g, "")) || 0;
+        const amountMinor = Math.round(amountMajor * 100);
+        return {
+          categoryId: r.categoryId,
+          amountMinor: transaction.amount_minor < 0 ? -amountMinor : amountMinor,
+        };
+      });
       const updated = await createTransactionSplits(transaction.id, { splits });
       onSuccess?.(updated);
       onClose();
@@ -102,7 +106,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
           <div>
             <p className="metric-label">Разбивка по категориям</p>
             <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-              Итого: {totalAbs.toLocaleString("ru-KZ")} ₸
+              Итого: {totalAbsMajor.toLocaleString("ru-KZ")} ₸
             </h3>
           </div>
           <button className="tx-inline-btn" onClick={onClose} type="button">
@@ -168,7 +172,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
             >
               {isBalanced
                 ? "Сумма сходится ✓"
-                : `Остаток: ${diff > 0 ? "+" : ""}${diff.toLocaleString("ru-KZ")} ₸`}
+                : `Остаток: ${diffMinor > 0 ? "+" : ""}${(diffMinor / 100).toLocaleString("ru-KZ")} ₸`}
             </div>
           </div>
         )}

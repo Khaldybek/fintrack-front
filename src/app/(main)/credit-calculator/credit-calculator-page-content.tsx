@@ -155,10 +155,10 @@ export function CreditCalculatorPageContent() {
     try {
       await updateCredit(editState.id, {
         bank: editState.bank.trim() || null,
-        principalMinor: Math.round(principalNum * 100),
+        principalMinor: Math.round(principalNum),
         ratePct: rateNum,
         termMonths: termNum,
-        monthlyPaymentMinor: Math.round(monthlyNum * 100),
+        monthlyPaymentMinor: Math.round(monthlyNum),
         paymentDayOfMonth,
       });
       await load();

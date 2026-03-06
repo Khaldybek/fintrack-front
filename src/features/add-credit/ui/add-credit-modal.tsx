@@ -68,8 +68,9 @@ export function AddCreditModal({
       return;
     }
 
-    const principalMinor = Math.round(principalNum * 100);
-    const monthlyPaymentMinor = Math.round(monthlyNum * 100);
+    // API принимает суммы в целых единицах (₸), не в тиынах
+    const principalMinor = Math.round(principalNum);
+    const monthlyPaymentMinor = Math.round(monthlyNum);
     const dayNum = paymentDay.trim() ? parseInt(paymentDay.replace(/\D/g, ""), 10) : undefined;
     const paymentDayOfMonth =
       dayNum != null && Number.isInteger(dayNum) && dayNum >= 1 && dayNum <= 31 ? dayNum : undefined;

@@ -5,6 +5,8 @@ export {
   login,
   refresh,
   logout,
+  forgotPassword,
+  resetPassword,
   getGoogleAuthUrl,
 } from "./auth";
 export type { RegisterBody, LoginBody } from "./auth";
