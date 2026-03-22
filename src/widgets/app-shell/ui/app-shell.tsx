@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/shared/i18n";
 import { ROUTES } from "@/shared/config";
 
 export type NavKey =
@@ -26,12 +27,12 @@ export type AppShellProps = {
   children: ReactNode;
 };
 
-const navItems: { key: NavKey; label: string; href: string }[] = [
-  { key: "dashboard", label: "Главная", href: ROUTES.home },
-  { key: "transactions", label: "Транзакции", href: ROUTES.transactions },
-  { key: "analytics", label: "Аналитика", href: ROUTES.analytics },
-  { key: "planning", label: "Бюджеты и цели", href: ROUTES.planning },
-  { key: "profile", label: "Профиль", href: ROUTES.profile },
+const navKeys: { key: NavKey; href: string; tKey: string }[] = [
+  { key: "dashboard", href: ROUTES.home, tKey: "nav.dashboard" },
+  { key: "transactions", href: ROUTES.transactions, tKey: "nav.transactions" },
+  { key: "analytics", href: ROUTES.analytics, tKey: "nav.analytics" },
+  { key: "planning", href: ROUTES.planning, tKey: "nav.planning" },
+  { key: "profile", href: ROUTES.profile, tKey: "nav.profile" },
 ];
 
 export function AppShell({
@@ -43,6 +44,11 @@ export function AppShell({
   actionAs,
   children,
 }: AppShellProps) {
+  const { t } = useI18n();
+  const navItems = useMemo(
+    () => navKeys.map((n) => ({ ...n, label: t(n.tKey) })),
+    [t],
+  );
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const mobilePrimary = navItems.filter((item) =>
     ["dashboard", "transactions", "analytics", "profile"].includes(item.key),
@@ -112,7 +118,7 @@ export function AppShell({
           onClick={() => setIsMoreMenuOpen((prev) => !prev)}
           type="button"
         >
-          Ещё
+          {t("shell.more")}
         </button>
       </nav>
 

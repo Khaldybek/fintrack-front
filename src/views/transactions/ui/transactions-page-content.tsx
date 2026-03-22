@@ -62,7 +62,7 @@ function formatMoneyValue(amount: MoneyDto | string, fallbackMinor?: number): st
   }
   if (typeof amount === "string" && amount) return amount;
   if (fallbackMinor != null) {
-    return `${(Math.abs(fallbackMinor) / 100).toLocaleString("ru-KZ")} ₸`;
+    return `${Math.abs(fallbackMinor).toLocaleString("ru-KZ")} ₸`;
   }
   return "—";
 }

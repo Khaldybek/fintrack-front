@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatMoney as moneyDisplay } from "@/shared/lib";
+import { formatMoney as moneyDisplay, useBodyScrollLock } from "@/shared/lib";
 import { AddCreditModal } from "@/features/add-credit";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
@@ -55,10 +55,11 @@ function getMinor(value: unknown): number {
   return 0;
 }
 
+/** Доп. платёж в месяц в целых единицах (₸), поле API extraPerMonthMinor */
 const SCENARIO_EXTRAS_MINOR = [
-  { label: "+ ₸10 000", value: 1_000_000 },
-  { label: "+ ₸25 000", value: 2_500_000 },
-  { label: "+ ₸50 000", value: 5_000_000 },
+  { label: "+ ₸10 000", value: 10_000 },
+  { label: "+ ₸25 000", value: 25_000 },
+  { label: "+ ₸50 000", value: 50_000 },
 ];
 
 function formatAmountInput(v: string): string {
@@ -89,6 +90,9 @@ export function CreditCalculatorPageContent() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const overlayOpen = editState !== null || deleteConfirmId !== null;
+  useBodyScrollLock(overlayOpen);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -129,10 +133,10 @@ export function CreditCalculatorPageContent() {
     setEditState({
       id: loan.id,
       bank: loan.bank ?? "",
-      principal: formatAmountInput(String(Math.round(loan.principal_minor / 100))),
+      principal: formatAmountInput(String(Math.round(loan.principal_minor))),
       ratePct: String(loan.ratePct),
       termMonths: String(loan.termMonths),
-      monthlyPayment: formatAmountInput(String(Math.round(loan.monthly_payment_minor / 100))),
+      monthlyPayment: formatAmountInput(String(Math.round(loan.monthly_payment_minor))),
       paymentDay: loan.paymentDayOfMonth != null ? String(loan.paymentDayOfMonth) : "",
     });
   };
@@ -180,13 +184,15 @@ export function CreditCalculatorPageContent() {
     }
   };
 
-  const totalOverpayMinor = credits.reduce((acc, c) => {
+  /** Грубая оценка без API — только если симуляция ещё не загрузилась */
+  const totalOverpayMinorFallback = credits.reduce((acc, c) => {
     const payment = getMinor(c.monthly_payment_minor ?? c.monthlyPayment);
     const principal = getMinor(c.principal_minor ?? c.principal);
     return acc + Math.max(0, payment * c.termMonths - principal);
   }, 0);
 
   const currentMonths = Number(simulateCurrent?.estimated_months_to_payoff) || 0;
+  const baselineMonths = Number(simulateCurrent?.baseline_months_to_payoff) || currentMonths;
   const freedomDateStr = formatFreedomDate(currentMonths);
   const countdown = formatCountdown(currentMonths);
 
@@ -262,7 +268,7 @@ export function CreditCalculatorPageContent() {
 
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ink-muted)]">
                           {overpayMinor > 0 && (
-                            <span>Переплата: {(overpayMinor / 100).toLocaleString("ru-KZ")} ₸</span>
+                            <span>Переплата: {overpayMinor.toLocaleString("ru-KZ")} ₸</span>
                           )}
                           {loan.nextPaymentDate && (
                             <span className={isSoon ? "font-medium text-[#92400e]" : ""}>
@@ -310,11 +316,21 @@ export function CreditCalculatorPageContent() {
                   </span>
                 </div>
 
+                {simulateCurrent?.severity === "risk" && simulateCurrent.explanation && (
+                  <div className="alert alert-warn mt-4 text-sm">
+                    {simulateCurrent.explanation}
+                  </div>
+                )}
+
                 <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
                   {SCENARIO_EXTRAS_MINOR.map((s) => {
                     const res = scenarios[s.value];
+                    const savedM = res?.months_saved != null ? res.months_saved : Math.max(0, baselineMonths - Number(res?.estimated_months_to_payoff || 0));
                     return (
-                      <div key={s.value} className="credit-scenario">
+                      <div
+                        key={s.value}
+                        className={`credit-scenario ${res?.severity === "risk" ? "ring-1 ring-[#fecaca]" : ""}`}
+                      >
                         <p className="mono text-sm font-semibold text-[var(--ink-strong)]">
                           {s.label} / мес
                         </p>
@@ -324,8 +340,19 @@ export function CreditCalculatorPageContent() {
                               Дата свободы: {formatFreedomDate(Number(res.estimated_months_to_payoff) || 0)}
                             </p>
                             <p className="mt-1 text-xs text-[#166534]">
-                              Переплата: {moneyDisplay(res.estimated_overpayment)}
+                              Быстрее на ~{savedM} мес.
                             </p>
+                            {res.interest_saved != null && (
+                              <p className="mt-0.5 text-xs font-medium text-[#166534]">
+                                Экономия процентов: {moneyDisplay(res.interest_saved)}
+                              </p>
+                            )}
+                            <p className="mt-1 text-xs text-[var(--ink-soft)]">
+                              Переплата по сценарию: {moneyDisplay(res.estimated_overpayment)}
+                            </p>
+                            {res.severity === "risk" && res.explanation && (
+                              <p className="mt-1 text-xs text-[#9f1239]">{res.explanation}</p>
+                            )}
                           </>
                         ) : (
                           <p className="mt-1 text-xs text-[var(--ink-muted)]">—</p>
@@ -337,8 +364,8 @@ export function CreditCalculatorPageContent() {
 
                 <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
                   <div className="metric-row">
-                    <span>Текущий план</span>
-                    <span className="mono">{freedomDateStr}</span>
+                    <span>Текущий план (без досрочки)</span>
+                    <span className="mono">{formatFreedomDate(baselineMonths)}</span>
                   </div>
                   {scenarios[2_500_000] && (
                     <div className="metric-row">
@@ -398,17 +425,34 @@ export function CreditCalculatorPageContent() {
                   <span className="mono">{moneyDisplay(summary?.total_monthly_payment)}</span>
                 </div>
                 <div className="metric-row">
-                  <span>Переплата (расчётная)</span>
+                  <span>Переплата процентами (амортизация)</span>
                   <span className="mono">
-                    {totalOverpayMinor > 0 ? `${(totalOverpayMinor / 100).toLocaleString("ru-KZ")} ₸` : "—"}
+                    {simulateCurrent
+                      ? moneyDisplay(simulateCurrent.baseline_overpayment)
+                      : totalOverpayMinorFallback > 0
+                        ? `${totalOverpayMinorFallback.toLocaleString("ru-KZ")} ₸`
+                        : "—"}
                   </span>
                 </div>
+                {summary?.avg_rate_pct != null && (
+                  <div className="metric-row">
+                    <span>Средневзвешенная ставка</span>
+                    <span className="mono">{summary.avg_rate_pct.toFixed(2)}%</span>
+                  </div>
+                )}
                 <div className="metric-row">
                   <span>Платежи / доход</span>
                   <span className="mono">
-                    {summary?.debt_to_income_percent != null ? `${summary.debt_to_income_percent}%` : "—"}
+                    {summary?.debt_to_income_percent != null
+                      ? `${summary.debt_to_income_percent}%`
+                      : "—"}
                   </span>
                 </div>
+                {summary?.debt_to_income_percent == null && (
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Укажите месячный доход в профиле или на бэке — иначе доля платежей в доходе не считается.
+                  </p>
+                )}
               </div>
 
               <div className="credit-traffic mt-4">
@@ -431,7 +475,14 @@ export function CreditCalculatorPageContent() {
                   {freedomDateStr}
                 </p>
                 {currentMonths > 0 && (
-                  <p className="mt-1 text-sm text-[var(--ink-soft)]">Осталось ~{currentMonths} мес</p>
+                  <p className="mt-1 text-sm text-[var(--ink-soft)]">
+                    Осталось ~{currentMonths} мес
+                    {simulateCurrent && baselineMonths !== currentMonths && (
+                      <span className="block text-xs text-[var(--ink-muted)]">
+                        (без досрочки ~{baselineMonths} мес)
+                      </span>
+                    )}
+                  </p>
                 )}
                 <div className="credit-countdown mt-4">
                   <div>
@@ -458,7 +509,13 @@ export function CreditCalculatorPageContent() {
                   {summary?.explanation && <div className="alert">{summary.explanation}</div>}
                   {scenarios[2_500_000] && (
                     <div className="alert">
-                      +₸25 000/мес сокращает срок до {Number(scenarios[2_500_000]?.estimated_months_to_payoff) || 0} мес.
+                      +₸25 000/мес: срок ~{Number(scenarios[2_500_000]?.estimated_months_to_payoff) || 0} мес.
+                      {scenarios[2_500_000]?.months_saved != null && (
+                        <> · быстрее на {scenarios[2_500_000].months_saved} мес.</>
+                      )}
+                      {scenarios[2_500_000]?.interest_saved != null && (
+                        <> · экономия процентов {moneyDisplay(scenarios[2_500_000].interest_saved)}</>
+                      )}
                     </div>
                   )}
                 </div>
@@ -470,115 +527,126 @@ export function CreditCalculatorPageContent() {
 
       {/* Модал редактирования кредита */}
       {editState && (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[80] overflow-hidden">
           <button
             aria-label="Закрыть"
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setEditState(null)}
             type="button"
           />
-          <section className="absolute bottom-0 left-0 right-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-                Редактировать — {editState.bank || "Кредит"}
-              </h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setEditState(null)}>Закрыть</button>
-            </div>
-            <form onSubmit={handleEditSubmit} className="grid grid-cols-1 gap-4">
-              {editError && <div className="alert alert-warn">{editError}</div>}
-
-              <label className="auth-field">
-                <span>Банк (необязательно)</span>
-                <input
-                  value={editState.bank}
-                  onChange={(e) => setEditState((s) => s && { ...s, bank: e.target.value })}
-                  placeholder="Kaspi Bank"
-                  maxLength={200}
-                />
-              </label>
-
-              <label className="auth-field">
-                <span>Сумма кредита, ₸</span>
-                <input
-                  value={editState.principal}
-                  onChange={(e) => setEditState((s) => s && { ...s, principal: formatAmountInput(e.target.value) })}
-                  placeholder="1 000 000"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="auth-field">
-                  <span>Ставка, %</span>
-                  <input
-                    value={editState.ratePct}
-                    onChange={(e) => setEditState((s) => s && { ...s, ratePct: e.target.value.replace(/[^\d.,]/g, "") })}
-                    placeholder="18.5"
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                  />
-                </label>
-                <label className="auth-field">
-                  <span>Срок, мес</span>
-                  <input
-                    value={editState.termMonths}
-                    onChange={(e) => setEditState((s) => s && { ...s, termMonths: e.target.value.replace(/\D/g, "") })}
-                    placeholder="24"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                  />
-                </label>
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center md:items-center md:pt-8">
+            <section className="pointer-events-auto flex max-h-[min(92dvh,100%)] w-full max-w-[480px] flex-col rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] shadow-[0_-12px_48px_-16px_rgba(15,23,42,0.25)] md:max-h-[min(85dvh,calc(100dvh-4rem))] md:rounded-2xl md:shadow-2xl">
+              <div className="flex shrink-0 flex-col border-b border-[var(--line)] px-4 pb-3 pt-2 md:px-6 md:pb-4 md:pt-4">
+                <div className="mb-2 flex justify-center md:hidden" aria-hidden>
+                  <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
+                    Редактировать — {editState.bank || "Кредит"}
+                  </h3>
+                  <button className="tx-inline-btn" type="button" onClick={() => setEditState(null)}>Закрыть</button>
+                </div>
               </div>
+              <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
+                <form onSubmit={handleEditSubmit} className="grid grid-cols-1 gap-4 pb-2">
+                  {editError && <div className="alert alert-warn">{editError}</div>}
 
-              <label className="auth-field">
-                <span>Ежемесячный платёж, ₸</span>
-                <input
-                  value={editState.monthlyPayment}
-                  onChange={(e) => setEditState((s) => s && { ...s, monthlyPayment: formatAmountInput(e.target.value) })}
-                  placeholder="50 000"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-              </label>
+                  <label className="auth-field">
+                    <span>Банк (необязательно)</span>
+                    <input
+                      value={editState.bank}
+                      onChange={(e) => setEditState((s) => s && { ...s, bank: e.target.value })}
+                      placeholder="Kaspi Bank"
+                      maxLength={200}
+                    />
+                  </label>
 
-              <label className="auth-field">
-                <span>День платежа (1–31, необязательно)</span>
-                <input
-                  value={editState.paymentDay}
-                  onChange={(e) => setEditState((s) => s && { ...s, paymentDay: e.target.value.replace(/\D/g, "").slice(0, 2) })}
-                  placeholder="15"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-              </label>
+                  <label className="auth-field">
+                    <span>Сумма кредита, ₸</span>
+                    <input
+                      value={editState.principal}
+                      onChange={(e) => setEditState((s) => s && { ...s, principal: formatAmountInput(e.target.value) })}
+                      placeholder="1 000 000"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                  </label>
 
-              <div className="mt-1 flex gap-2">
-                <button className="action-btn flex-1" type="submit" disabled={editSubmitting}>
-                  {editSubmitting ? "Сохраняем…" : "Сохранить"}
-                </button>
-                <button className="tx-inline-btn" type="button" onClick={() => setEditState(null)}>Отмена</button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="auth-field">
+                      <span>Ставка, %</span>
+                      <input
+                        value={editState.ratePct}
+                        onChange={(e) => setEditState((s) => s && { ...s, ratePct: e.target.value.replace(/[^\d.,]/g, "") })}
+                        placeholder="18.5"
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                      />
+                    </label>
+                    <label className="auth-field">
+                      <span>Срок, мес</span>
+                      <input
+                        value={editState.termMonths}
+                        onChange={(e) => setEditState((s) => s && { ...s, termMonths: e.target.value.replace(/\D/g, "") })}
+                        placeholder="24"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="auth-field">
+                    <span>Ежемесячный платёж, ₸</span>
+                    <input
+                      value={editState.monthlyPayment}
+                      onChange={(e) => setEditState((s) => s && { ...s, monthlyPayment: formatAmountInput(e.target.value) })}
+                      placeholder="50 000"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                  </label>
+
+                  <label className="auth-field">
+                    <span>День платежа (1–31, необязательно)</span>
+                    <input
+                      value={editState.paymentDay}
+                      onChange={(e) => setEditState((s) => s && { ...s, paymentDay: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+                      placeholder="15"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                  </label>
+
+                  <div className="sticky bottom-0 z-[1] flex flex-col gap-2 bg-[var(--surface-1)] pt-2 pb-1 md:static md:bg-transparent md:pt-0">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                      <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setEditState(null)}>Отмена</button>
+                      <button className="action-btn w-full sm:flex-1" type="submit" disabled={editSubmitting}>
+                        {editSubmitting ? "Сохраняем…" : "Сохранить"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
               </div>
-            </form>
-          </section>
+            </section>
+          </div>
         </div>
       )}
 
       {/* Подтверждение удаления */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-[82]">
+        <div className="fixed inset-0 z-[82] overflow-hidden">
           <button
             aria-label="Закрыть"
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setDeleteConfirmId(null)}
             type="button"
           />
-          <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
+          <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-[var(--surface-1)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6 md:pb-6">
             <p className="font-medium text-[var(--ink-strong)]">Удалить кредит?</p>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">
               Запись о кредите будет удалена. Симуляции и сводка пересчитаются автоматически.

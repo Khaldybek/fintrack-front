@@ -15,8 +15,7 @@ import {
   getSalarySchedules,
   createSalarySchedule,
   deleteSalarySchedule,
-  getAnalyticsCategories,
-  getTransactions,
+  getDashboardCharts,
 } from "@/shared/api";
 import type {
   DashboardSummary,
@@ -25,6 +24,8 @@ import type {
   DashboardInsight,
   DashboardIndex,
   SalarySchedule,
+  DashboardCashflowByMonth,
+  DashboardExpenseByDay,
 } from "@/shared/api";
 
 const INDEX_STATUS_LABEL: Record<string, string> = {
@@ -39,10 +40,53 @@ const SEVERITY_ICON: Record<string, string> = {
   good: "🟢",
 };
 
+function formatAmountInput(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 function severityTextClass(sev: string | undefined): string {
   if (sev === "risk") return "text-[#9f1239]";
   if (sev === "attention") return "text-[#92400e]";
   return "text-[var(--ink-soft)]";
+}
+
+/** Столбцы графика расходов по дням (GET /dashboard/charts → expense_by_day). */
+function buildDailyBarsFromExpenseByDay(days: DashboardExpenseByDay[]): { id: string; h: number; label: string }[] {
+  if (!days?.length) return [];
+  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
+  const amounts = sorted.map((d) => Math.abs(d.amount_minor));
+  const max = Math.max(...amounts, 1);
+  return sorted.map((d, i) => ({
+    id: `d${i + 1}`,
+    label: d.date.length >= 10 ? d.date.slice(8, 10) : String(i + 1),
+    h: Math.round((Math.abs(d.amount_minor) / max) * 100) || 8,
+  }));
+}
+
+const MONTH_SHORT: Record<string, string> = {
+  "01": "янв",
+  "02": "фев",
+  "03": "мар",
+  "04": "апр",
+  "05": "май",
+  "06": "июн",
+  "07": "июл",
+  "08": "авг",
+  "09": "сен",
+  "10": "окт",
+  "11": "ноя",
+  "12": "дек",
+};
+
+function formatCashflowMonthLabel(ym: string): string {
+  const p = ym.split("-");
+  if (p.length >= 2) {
+    const m = MONTH_SHORT[p[1]?.padStart(2, "0") ?? ""];
+    if (m && p[0]) return `${m} ${p[0].slice(2)}`;
+  }
+  return ym;
 }
 
 export function DashboardPageContent() {
@@ -54,14 +98,19 @@ export function DashboardPageContent() {
   const [insight, setInsight] = useState<DashboardInsight | null>(null);
   const [index, setIndex] = useState<DashboardIndex | null>(null);
   const [salarySchedules, setSalarySchedules] = useState<SalarySchedule[]>([]);
-  const [spendingBars, setSpendingBars] = useState<{ label: string; value: number }[]>([]);
-  const [dailyChart, setDailyChart] = useState<{ id: string; h: number }[]>([]);
+  const [spendingBars, setSpendingBars] = useState<
+    { categoryId: string; label: string; value: number; color?: string }[]
+  >([]);
+  const [dailyChart, setDailyChart] = useState<{ id: string; h: number; label: string }[]>([]);
+  const [cashflowByMonth, setCashflowByMonth] = useState<DashboardCashflowByMonth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Форма создания salary schedule
   const [salaryDay, setSalaryDay] = useState("");
   const [salaryLabel, setSalaryLabel] = useState("");
+  /** Сумма зарплаты, ₸ (целые единицы → amountMinor в API) */
+  const [salaryAmount, setSalaryAmount] = useState("");
   const [salarySubmitting, setSalarySubmitting] = useState(false);
   const [salaryError, setSalaryError] = useState<string | null>(null);
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
@@ -71,10 +120,10 @@ export function DashboardPageContent() {
     const dateTo = now.toISOString().slice(0, 10);
     const from7 = new Date(now);
     from7.setDate(from7.getDate() - 7);
-    const dateFrom7 = from7.toISOString().slice(0, 10);
+    const dateFromWeek = from7.toISOString().slice(0, 10);
 
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const dateFromMonth = monthStart.toISOString().slice(0, 10);
 
     Promise.all([
       getDashboardSummary(),
@@ -83,13 +132,10 @@ export function DashboardPageContent() {
       getDashboardInsight(),
       getDashboardIndex().catch(() => null),
       getSalarySchedules().catch(() => []),
-      getAnalyticsCategories({
-        dateFrom: monthStart.toISOString().slice(0, 10),
-        dateTo: monthEnd.toISOString().slice(0, 10),
-      }),
-      getTransactions({ dateFrom: dateFrom7, dateTo, limit: 500 }),
+      getDashboardCharts({ dateFrom: dateFromWeek, dateTo, months: 6 }).catch(() => null),
+      getDashboardCharts({ dateFrom: dateFromMonth, dateTo, months: 6 }).catch(() => null),
     ])
-      .then(([summaryRes, forecastRes, alertsRes, insightRes, indexRes, schedulesRes, categoriesRes, transactionsRes]) => {
+      .then(([summaryRes, forecastRes, alertsRes, insightRes, indexRes, schedulesRes, chartsWeek, chartsMonth]) => {
         setSummary(summaryRes);
         setForecast(forecastRes);
         setAlerts(alertsRes.items ?? []);
@@ -97,29 +143,22 @@ export function DashboardPageContent() {
         setIndex(indexRes ?? null);
         setSalarySchedules(Array.isArray(schedulesRes) ? schedulesRes : []);
 
-        // Структура расходов по категориям
-        const total = categoriesRes.total_expense_minor || 1;
-        const bars = (categoriesRes.items ?? [])
-          .filter((c) => c.expense_minor > 0)
-          .map((c) => ({ label: c.name, value: Math.round((c.expense_minor / total) * 100) }))
-          .slice(0, 5);
+        // GET /dashboard/charts — расходы по дням (неделя)
+        setDailyChart(buildDailyBarsFromExpenseByDay(chartsWeek?.expense_by_day ?? []));
+
+        // Структура расходов по категориям (текущий месяц)
+        const bars = (chartsMonth?.expense_by_category ?? [])
+          .filter((c) => c.amount_minor > 0)
+          .slice(0, 5)
+          .map((c) => ({
+            categoryId: c.categoryId,
+            label: c.name,
+            value: Math.min(100, Math.max(0, Math.round(c.share_pct))),
+            color: c.color,
+          }));
         setSpendingBars(bars);
 
-        // График расходов за последние 8 дней
-        const byDay: Record<string, number> = {};
-        for (let d = 0; d < 8; d++) {
-          const day = new Date(now);
-          day.setDate(day.getDate() - (7 - d));
-          byDay[day.toISOString().slice(0, 10)] = 0;
-        }
-        for (const t of transactionsRes.items ?? []) {
-          if (t.amount_minor >= 0) continue;
-          const date = t.date.slice(0, 10);
-          if (date in byDay) byDay[date] += Math.abs(t.amount_minor);
-        }
-        const sortedDays = Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-        const maxDay = Math.max(...sortedDays, 1);
-        setDailyChart(sortedDays.map((v, i) => ({ id: `d${i + 1}`, h: Math.round((v / maxDay) * 100) || 8 })));
+        setCashflowByMonth(chartsMonth?.cashflow_by_month ?? []);
       })
       .catch((err) => setError(err?.message ?? "Не удалось загрузить дашборд"))
       .finally(() => setLoading(false));
@@ -140,13 +179,27 @@ export function DashboardPageContent() {
       setSalaryError("Введите день от 1 до 31");
       return;
     }
+    const amountDigits = salaryAmount.replace(/\s/g, "");
+    const amountParsed = amountDigits ? parseInt(amountDigits, 10) : NaN;
+    if (amountDigits && (!Number.isFinite(amountParsed) || amountParsed < 1)) {
+      setSalaryError("Введите сумму зарплаты целым числом ₸ (от 1) или оставьте поле пустым");
+      return;
+    }
+
     setSalarySubmitting(true);
     try {
-      await createSalarySchedule({ dayOfMonth: day, label: salaryLabel.trim() || undefined });
+      await createSalarySchedule({
+        dayOfMonth: day,
+        label: salaryLabel.trim() || undefined,
+        ...(Number.isFinite(amountParsed) && amountParsed >= 1
+          ? { amountMinor: amountParsed }
+          : {}),
+      });
       const updated = await getSalarySchedules();
       setSalarySchedules(Array.isArray(updated) ? updated : []);
       setSalaryDay("");
       setSalaryLabel("");
+      setSalaryAmount("");
       setSalaryModalOpen(false);
     } catch (err) {
       setSalaryError((err as Error)?.message ?? "Не удалось добавить расписание");
@@ -184,12 +237,12 @@ export function DashboardPageContent() {
     );
   }
 
-  const balanceStr = formatMoney(summary?.balance) || (summary ? `${(summary.balance_total_minor / 100).toLocaleString("ru-KZ")} ${summary.currency}` : "—");
-  const incomeStr = formatMoney(summary?.income) || (summary ? `${(summary.income_minor / 100).toLocaleString("ru-KZ")} ₸` : "—");
-  const expenseStr = formatMoney(summary?.expense) || (summary ? `${(summary.expense_minor / 100).toLocaleString("ru-KZ")} ₸` : "—");
+  const balanceStr = formatMoney(summary?.balance) || (summary ? `${summary.balance_total_minor.toLocaleString("ru-KZ")} ${summary.currency}` : "—");
+  const incomeStr = formatMoney(summary?.income) || (summary ? `${summary.income_minor.toLocaleString("ru-KZ")} ₸` : "—");
+  const expenseStr = formatMoney(summary?.expense) || (summary ? `${summary.expense_minor.toLocaleString("ru-KZ")} ₸` : "—");
   const netMinor = (summary?.income_minor ?? 0) - (summary?.expense_minor ?? 0);
-  const netStr = summary ? `${(netMinor / 100).toLocaleString("ru-KZ")} ${summary.currency}` : "—";
-  const projectedStr = formatMoney(forecast?.projected_balance) || (forecast ? `${(forecast.projected_balance_minor / 100).toLocaleString("ru-KZ")} ${summary?.currency ?? ""}` : "—");
+  const netStr = summary ? `${netMinor.toLocaleString("ru-KZ")} ${summary.currency}` : "—";
+  const projectedStr = formatMoney(forecast?.projected_balance) || (forecast ? `${forecast.projected_balance_minor.toLocaleString("ru-KZ")} ${summary?.currency ?? ""}` : "—");
 
   const indexFactors = [
     ...(index?.factors_positive ?? []).map((f) => ({ label: f.label, score: `+${f.score}`, tone: "up" as const })),
@@ -282,14 +335,17 @@ export function DashboardPageContent() {
                   <span className="mono text-xs text-[var(--ink-muted)]">Последние 8 дней</span>
                 </div>
                 {dailyChart.length > 0 ? (
-                  <div className="grid h-40 grid-cols-8 items-end gap-2">
+                  <div
+                    className="grid h-40 items-end gap-2"
+                    style={{ gridTemplateColumns: `repeat(${Math.min(dailyChart.length, 14)}, minmax(0, 1fr))` }}
+                  >
                     {dailyChart.map((bar) => (
                       <div key={bar.id} className="space-y-2">
                         <div
                           className="rounded-md bg-gradient-to-t from-[#0f172a] to-[#64748b]"
                           style={{ height: `${bar.h}%` }}
                         />
-                        <p className="mono text-center text-[10px] text-[var(--ink-muted)]">{bar.id.replace("d", "D")}</p>
+                        <p className="mono text-center text-[10px] text-[var(--ink-muted)]">{bar.label}</p>
                       </div>
                     ))}
                   </div>
@@ -297,6 +353,45 @@ export function DashboardPageContent() {
                   <p className="text-sm text-[var(--ink-muted)]">Нет данных о расходах за последние 8 дней.</p>
                 )}
               </article>
+
+              {cashflowByMonth.length > 0 && (
+                <article className="card loading-reveal p-5 md:p-6">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Доход и расход по месяцам</h2>
+                    <span className="mono text-xs text-[var(--ink-muted)]">Тренд (cashflow_by_month)</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-sm">
+                      <thead>
+                        <tr className="border-b border-[var(--line)] text-left text-[var(--ink-muted)]">
+                          <th className="pb-2 pr-3 font-medium">Месяц</th>
+                          <th className="pb-2 pr-3 font-medium">Доход</th>
+                          <th className="pb-2 pr-3 font-medium">Расход</th>
+                          <th className="pb-2 font-medium">Нетто</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cashflowByMonth.map((m) => (
+                          <tr key={m.month} className="border-b border-[var(--line)]/60">
+                            <td className="py-2.5 pr-3 font-medium text-[var(--ink-strong)]">
+                              {formatCashflowMonthLabel(m.month)}
+                            </td>
+                            <td className="mono py-2.5 pr-3 text-[#166534]">
+                              {formatMoney(m.income)}
+                            </td>
+                            <td className="mono py-2.5 pr-3 text-[#9f1239]">
+                              {formatMoney(m.expense)}
+                            </td>
+                            <td className={`mono py-2.5 ${m.net_minor >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}>
+                              {formatMoney(m.net)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              )}
 
               <article className="card loading-reveal p-5 md:p-6">
                 <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Активные предупреждения</h2>
@@ -356,7 +451,7 @@ export function DashboardPageContent() {
                 <div>
                   <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Расписание зарплат</h2>
                   <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                    День месяца для прогноза кассового разрыва
+                    День поступления и при желании сумма — для прогноза и доли платежей
                   </p>
                 </div>
                 <button
@@ -375,11 +470,16 @@ export function DashboardPageContent() {
               ) : (
                 <div className="space-y-2">
                   {salarySchedules.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between rounded-xl border border-[var(--line)] px-4 py-2.5">
-                      <div>
+                    <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] px-4 py-2.5">
+                      <div className="min-w-0">
                         <span className="mono font-semibold text-[var(--ink-strong)]">{s.dayOfMonth} числа</span>
                         {s.label && (
                           <span className="ml-2 text-sm text-[var(--ink-muted)]">— {s.label}</span>
+                        )}
+                        {s.amountMinor != null && s.amountMinor > 0 && (
+                          <p className="mono mt-0.5 text-sm font-medium text-[#166534]">
+                            {s.amountMinor.toLocaleString("ru-KZ")} ₸
+                          </p>
                         )}
                       </div>
                       <button
@@ -401,9 +501,10 @@ export function DashboardPageContent() {
             {spendingBars.length > 0 && (
               <article className="card loading-reveal p-5">
                 <h2 className="text-base font-semibold text-[var(--ink-strong)]">Структура расходов</h2>
+                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">Текущий месяц</p>
                 <div className="mt-4 space-y-4">
                   {spendingBars.map((item) => (
-                    <div key={item.label} className="space-y-2">
+                    <div key={item.categoryId} className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-[var(--ink-soft)]">{item.label}</span>
                         <span className="mono text-[var(--ink-strong)]">{item.value}%</span>
@@ -411,7 +512,15 @@ export function DashboardPageContent() {
                       <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-3)]">
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#334155]"
-                          style={{ width: `${item.value}%` }}
+                          style={{
+                            width: `${item.value}%`,
+                            ...(item.color
+                              ? {
+                                  background: item.color,
+                                  backgroundImage: "none",
+                                }
+                              : {}),
+                          }}
                         />
                       </div>
                     </div>
@@ -485,11 +594,25 @@ export function DashboardPageContent() {
                 <input
                   value={salaryLabel}
                   onChange={(e) => setSalaryLabel(e.target.value)}
-                  placeholder="Зарплата"
+                  placeholder="Основная зарплата"
                   maxLength={100}
                   autoComplete="off"
                 />
               </label>
+              <label className="auth-field">
+                <span>Сумма, ₸ (необязательно)</span>
+                <input
+                  value={salaryAmount}
+                  onChange={(e) => setSalaryAmount(formatAmountInput(e.target.value))}
+                  placeholder="850 000"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                />
+              </label>
+              <p className="text-xs text-[var(--ink-muted)]">
+                Целое число в тенге. Используется в расчётах доли платежей и прогноза. Можно не указывать.
+              </p>
               <div className="mt-1 flex gap-2">
                 <button className="action-btn flex-1" type="submit" disabled={salarySubmitting}>
                   {salarySubmitting ? "Сохраняем…" : "Добавить"}

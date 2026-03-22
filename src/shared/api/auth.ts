@@ -31,9 +31,11 @@ export async function login(body: LoginBody): Promise<AuthResponse> {
   });
 }
 
+/** POST /auth/refresh — тело явно {}, чтобы бэкенд (ValidationPipe) не получал лишних полей (на Vercel иначе мог прийти path). */
 export async function refresh(): Promise<AuthResponse> {
   return apiClient<AuthResponse>("/auth/refresh", {
     method: "POST",
+    body: JSON.stringify({}),
   });
 }
 

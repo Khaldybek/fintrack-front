@@ -48,6 +48,7 @@ export {
   getSalarySchedules,
   createSalarySchedule,
   deleteSalarySchedule,
+  getDashboardCharts,
 } from "./dashboard";
 export {
   getBudgets,
@@ -98,13 +99,21 @@ export {
   getSubscription,
   createSubscription,
   updateSubscription,
+  getSubscriptionsSummary,
+  getSubscriptionsReminders,
+  paySubscription,
+  deleteSubscription,
 } from "./subscriptions";
 export {
   getHousehold,
   createHousehold,
   inviteHouseholdMember,
   patchHouseholdMember,
+  deleteHouseholdMember,
+  leaveHousehold,
+  getHouseholdOverview,
 } from "./household";
+export { getNotifications, getNotificationsCount } from "./notifications";
 export type {
   Profile,
   PatchMeBody,
@@ -163,6 +172,12 @@ export type {
   SalarySchedule,
   CreateSalaryScheduleBody,
   DeleteSalaryScheduleResponse,
+  DashboardChartsQuery,
+  DashboardChartsResponse,
+  DashboardChartsPeriod,
+  DashboardExpenseByDay,
+  DashboardExpenseByCategory,
+  DashboardCashflowByMonth,
 } from "./types";
 export type {
   Budget,
@@ -229,8 +244,11 @@ export type {
   Subscription,
   SubscriptionSeverity,
   SubscriptionStatus,
+  SubscriptionReminder,
+  SubscriptionsSummaryResponse,
   CreateSubscriptionBody,
   UpdateSubscriptionBody,
+  DeleteSubscriptionResponse,
 } from "./types";
 export type {
   Household,
@@ -239,6 +257,21 @@ export type {
   CreateHouseholdBody,
   InviteHouseholdBody,
   PatchHouseholdMemberBody,
+  HouseholdOverviewResponse,
+  HouseholdOverviewHousehold,
+  HouseholdOverviewPeriod,
+  HouseholdOverviewTotals,
+  HouseholdMemberBalanceRow,
+  GetHouseholdOverviewQuery,
+} from "./types";
+export type {
+  NotificationSource,
+  NotificationSeverity,
+  NotificationItem,
+  NotificationsResponse,
+  GetNotificationsQuery,
+  NotificationsCountResponse,
+  GetNotificationsCountQuery,
 } from "./types";
 export type { AuthResponse, ApiUser, ApiError, FeatureGatedBody } from "./types";
 export { FeatureGatedError, getAccessTokenFromResponse } from "./types";

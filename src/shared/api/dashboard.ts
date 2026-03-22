@@ -6,8 +6,9 @@
  * - GET    /dashboard/insight        — инсайт дня (AI)
  * - GET    /dashboard/index          — финансовый индекс 0–100 и факторы
  * - GET    /dashboard/salary-schedules     — расписание зарплат
- * - POST   /dashboard/salary-schedules     — добавить (body: dayOfMonth, label)
+ * - POST   /dashboard/salary-schedules     — добавить (dayOfMonth, label?, amountMinor?)
  * - DELETE /dashboard/salary-schedules/:id — удалить
+ * - GET    /dashboard/charts             — графики: расходы по дням/категориям, cashflow по месяцам
  */
 import { apiClient } from "./client";
 import type {
@@ -19,6 +20,8 @@ import type {
   SalarySchedule,
   CreateSalaryScheduleBody,
   DeleteSalaryScheduleResponse,
+  DashboardChartsResponse,
+  DashboardChartsQuery,
 } from "./types";
 
 /** GET /v1/dashboard/index — финансовый индекс 0–100 и факторы. */
@@ -71,4 +74,22 @@ export async function deleteSalarySchedule(
       method: "DELETE",
     },
   );
+}
+
+/**
+ * GET /v1/dashboard/charts?dateFrom=&dateTo=&months=
+ * dateFrom + dateTo обязательны (YYYY-MM-DD). months 1–24 для cashflow_by_month (по умолчанию 6).
+ */
+export async function getDashboardCharts(
+  query: DashboardChartsQuery,
+): Promise<DashboardChartsResponse> {
+  const params = new URLSearchParams();
+  params.set("dateFrom", query.dateFrom);
+  params.set("dateTo", query.dateTo);
+  const months =
+    query.months != null
+      ? Math.min(24, Math.max(1, Math.floor(query.months)))
+      : 6;
+  params.set("months", String(months));
+  return apiClient<DashboardChartsResponse>(`/dashboard/charts?${params.toString()}`);
 }

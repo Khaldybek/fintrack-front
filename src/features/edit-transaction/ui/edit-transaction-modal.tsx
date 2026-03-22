@@ -16,10 +16,10 @@ export type EditTransactionModalProps = {
   onClose: () => void;
 };
 
-/** amount_minor в минорных единицах (100 = 1 ₸). В форме показываем и вводим в целых (₸). */
+/** amount_minor в API — целые единицы валюты (₸). */
 function signedAmountFromMinor(minor: number): { absStr: string; isExpense: boolean } {
   return {
-    absStr: String(Math.round(Math.abs(minor) / 100)),
+    absStr: String(Math.round(Math.abs(minor))),
     isExpense: minor < 0,
   };
 }
@@ -60,7 +60,7 @@ export function EditTransactionModal({
   }, []);
 
   const amountNum = parseFloat(amountRaw.replace(/\s/g, "").replace(",", ".")) || 0;
-  const amountMinor = isExpense ? -Math.round(amountNum * 100) : Math.round(amountNum * 100);
+  const amountMinor = isExpense ? -Math.round(amountNum) : Math.round(amountNum);
 
   const canSubmit = amountMinor !== 0 && categoryId && accountId && date;
 
@@ -73,7 +73,7 @@ export function EditTransactionModal({
     try {
       const res = await suggestCategoryTransaction({
         memo: memoText,
-        amountMinor: amountMinor !== 0 ? amountMinor : undefined, // уже в минорах
+        amountMinor: amountMinor !== 0 ? amountMinor : undefined,
       });
       setSuggestResult(res);
     } catch (err) {

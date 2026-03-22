@@ -8,9 +8,18 @@ import {
   getSubscriptions,
   createSubscription,
   updateSubscription,
+  getSubscriptionsSummary,
+  getSubscriptionsReminders,
+  paySubscription,
+  deleteSubscription,
   getCategories,
 } from "@/shared/api";
-import type { Subscription, Category } from "@/shared/api";
+import type {
+  Subscription,
+  SubscriptionReminder,
+  SubscriptionsSummaryResponse,
+  Category,
+} from "@/shared/api";
 
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 
@@ -65,6 +74,8 @@ const emptyForm = (): FormState => ({
 
 export function SubscriptionsPageContent() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [summary, setSummary] = useState<SubscriptionsSummaryResponse | null>(null);
+  const [reminders, setReminders] = useState<SubscriptionReminder[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,10 +85,21 @@ export function SubscriptionsPageContent() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    return getSubscriptions()
-      .then(setSubscriptions)
+    setError(null);
+    return Promise.all([
+      getSubscriptions(),
+      getSubscriptionsSummary().catch(() => null),
+      getSubscriptionsReminders(14).catch(() => []),
+    ])
+      .then(([subs, sum, rem]) => {
+        setSubscriptions(subs ?? []);
+        setSummary(sum);
+        setReminders(Array.isArray(rem) ? rem : []);
+      })
       .catch((err) => setError(err?.message ?? "Не удалось загрузить подписки"))
       .finally(() => setLoading(false));
   }, []);
@@ -103,7 +125,7 @@ export function SubscriptionsPageContent() {
     setFormError(null);
     setForm({
       name: sub.name,
-      amount: formatAmountInput(String(Math.round(sub.amount_minor / 100))),
+      amount: formatAmountInput(String(Math.round(sub.amount_minor))),
       currency: sub.currency ?? "KZT",
       nextPaymentDate: sub.nextPaymentDate?.slice(0, 10) ?? "",
       intervalDays: String(sub.intervalDays),
@@ -134,7 +156,7 @@ export function SubscriptionsPageContent() {
     try {
       await createSubscription({
         name: form.name.trim(),
-        amountMinor: Math.round(parseFloat(form.amount.replace(/\s/g, "")) * 100),
+        amountMinor: Math.round(parseFloat(form.amount.replace(/\s/g, ""))),
         currency: form.currency || undefined,
         nextPaymentDate: form.nextPaymentDate,
         intervalDays: parseInt(form.intervalDays, 10),
@@ -159,7 +181,7 @@ export function SubscriptionsPageContent() {
     try {
       await updateSubscription(editSub.id, {
         name: form.name.trim(),
-        amountMinor: Math.round(parseFloat(form.amount.replace(/\s/g, "")) * 100),
+        amountMinor: Math.round(parseFloat(form.amount.replace(/\s/g, ""))),
         currency: form.currency || undefined,
         nextPaymentDate: form.nextPaymentDate,
         intervalDays: parseInt(form.intervalDays, 10),
@@ -177,6 +199,39 @@ export function SubscriptionsPageContent() {
   const totalMonthlyMinor = subscriptions.reduce((acc, s) => acc + monthlyEquivalentMinor(s), 0);
   const upcomingSoon = subscriptions.filter((s) => daysUntil(s.nextPaymentDate) <= 3 && daysUntil(s.nextPaymentDate) >= 0);
   const overdue = subscriptions.filter((s) => s.status === "overdue" || daysUntil(s.nextPaymentDate) < 0);
+
+  const estimatedMonthlyDisplay =
+    summary != null
+      ? formatMoney(summary.estimated_monthly_total) ||
+        `${summary.estimated_monthly_total_minor.toLocaleString("ru-KZ")} ${summary.currency}`
+      : totalMonthlyMinor > 0
+        ? `${totalMonthlyMinor.toLocaleString("ru-KZ")} ₸`
+        : "—";
+
+  const handlePay = async (id: string) => {
+    setPayingId(id);
+    try {
+      await paySubscription(id);
+      await load();
+    } catch {
+      // silent
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await deleteSubscription(id);
+      setEditSub(null);
+      await load();
+    } catch {
+      // silent
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -216,7 +271,9 @@ export function SubscriptionsPageContent() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Активные списания</h2>
               {subscriptions.length > 0 && (
-                <span className="mono text-xs text-[var(--ink-muted)]">{subscriptions.length} подписок</span>
+                <span className="mono text-xs text-[var(--ink-muted)]">
+                  {summary?.subscriptions_count ?? subscriptions.length} подписок
+                </span>
               )}
             </div>
 
@@ -229,7 +286,7 @@ export function SubscriptionsPageContent() {
                 {subscriptions.map((item) => {
                   const days = daysUntil(item.nextPaymentDate);
                   const monthlyMinor = monthlyEquivalentMinor(item);
-                  const monthlyStr = `${(monthlyMinor / 100).toLocaleString("ru-KZ")} ₸/мес`;
+                  const monthlyStr = `${monthlyMinor.toLocaleString("ru-KZ")} ₸/мес`;
 
                   return (
                     <div key={item.id} className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3">
@@ -262,13 +319,32 @@ export function SubscriptionsPageContent() {
                         </div>
                       </div>
 
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <button
                           type="button"
                           className="tx-inline-btn h-7 rounded-lg px-2.5 text-xs"
                           onClick={() => openEdit(item)}
                         >
                           Редактировать
+                        </button>
+                        <button
+                          type="button"
+                          className="tx-inline-btn h-7 rounded-lg px-2.5 text-xs text-[#166534]"
+                          disabled={payingId === item.id || deletingId === item.id}
+                          onClick={() => handlePay(item.id)}
+                        >
+                          {payingId === item.id ? "…" : "Оплатил"}
+                        </button>
+                        <button
+                          type="button"
+                          className="tx-inline-btn danger h-7 rounded-lg px-2.5 text-xs"
+                          disabled={deletingId === item.id || payingId === item.id}
+                          onClick={() => {
+                            if (typeof window !== "undefined" && !window.confirm(`Удалить «${item.name}»?`)) return;
+                            handleDelete(item.id);
+                          }}
+                        >
+                          {deletingId === item.id ? "…" : "Удалить"}
                         </button>
                       </div>
                     </div>
@@ -281,25 +357,29 @@ export function SubscriptionsPageContent() {
           {/* Сайдбар */}
           <aside className="flex flex-col gap-5">
             <article className="card p-5">
-              <h2 className="text-base font-semibold text-[var(--ink-strong)]">Сводка месяца</h2>
+              <h2 className="text-base font-semibold text-[var(--ink-strong)]">Сводка</h2>
               <div className="mt-4 space-y-3">
                 <div className="metric-row">
                   <span>Всего подписок</span>
-                  <span className="mono">{subscriptions.length}</span>
+                  <span className="mono">{summary?.subscriptions_count ?? subscriptions.length}</span>
                 </div>
                 <div className="metric-row">
-                  <span>Сумма в месяц</span>
-                  <span className="mono">
-                    {totalMonthlyMinor > 0 ? `${(totalMonthlyMinor / 100).toLocaleString("ru-KZ")} ₸` : "—"}
-                  </span>
+                  <span>Оценка в месяц</span>
+                  <span className="mono">{estimatedMonthlyDisplay}</span>
                 </div>
+                {(summary?.due_soon_count ?? 0) > 0 && (
+                  <div className="metric-row">
+                    <span>Скоро к оплате (14 дн.)</span>
+                    <span className="mono text-[#b45309]">{summary?.due_soon_count}</span>
+                  </div>
+                )}
                 {overdue.length > 0 && (
                   <div className="metric-row">
                     <span>Просрочено</span>
                     <span className="mono text-[#9f1239]">{overdue.length}</span>
                   </div>
                 )}
-                {upcomingSoon.length > 0 && (
+                {!summary && upcomingSoon.length > 0 && (
                   <div className="metric-row">
                     <span>Спишется в ближайшие 3 дня</span>
                     <span className="mono text-[#b45309]">{upcomingSoon.length}</span>
@@ -308,8 +388,35 @@ export function SubscriptionsPageContent() {
               </div>
             </article>
 
-            {/* Ближайшие списания */}
-            {upcomingSoon.length > 0 && (
+            {/* Напоминания с бэкенда (GET /subscriptions/reminders) */}
+            {reminders.length > 0 ? (
+              <article className="card p-5">
+                <h2 className="text-base font-semibold text-[var(--ink-strong)]">Ближайшие платежи</h2>
+                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">До 14 дней</p>
+                <ul className="mt-3 space-y-2">
+                  {reminders.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex flex-col gap-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-[var(--ink-strong)]">{s.name}</span>
+                        <span className="mono text-xs text-[var(--ink-muted)]">
+                          {s.days_until_payment < 0
+                            ? `просрочено ${Math.abs(s.days_until_payment)} дн.`
+                            : s.days_until_payment === 0
+                              ? "сегодня"
+                              : `через ${s.days_until_payment} дн.`}
+                        </span>
+                      </div>
+                      <span className="mono text-xs text-[var(--ink-soft)]">
+                        {formatNextPayment(s.nextPaymentDate)} · {formatMoney(s.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ) : upcomingSoon.length > 0 ? (
               <article className="card p-5">
                 <h2 className="text-base font-semibold text-[var(--ink-strong)]">Ближайшие списания</h2>
                 <ul className="mt-3 space-y-2">
@@ -323,7 +430,7 @@ export function SubscriptionsPageContent() {
                   ))}
                 </ul>
               </article>
-            )}
+            ) : null}
 
             <article className="card p-5">
               <h2 className="text-base font-semibold text-[var(--ink-strong)]">Инсайт</h2>
@@ -393,6 +500,18 @@ export function SubscriptionsPageContent() {
               submitLabel="Сохранить"
               onCancel={() => setEditSub(null)}
             />
+            <button
+              type="button"
+              className="tx-inline-btn danger mt-4 w-full"
+              disabled={deletingId === editSub.id || submitting}
+              onClick={() => {
+                if (!editSub) return;
+                if (typeof window !== "undefined" && !window.confirm(`Удалить подписку «${editSub.name}»?`)) return;
+                handleDelete(editSub.id);
+              }}
+            >
+              {deletingId === editSub.id ? "Удаляем…" : "Удалить подписку"}
+            </button>
           </section>
         </div>
       )}

@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatMoney } from "@/shared/lib";
+import {
+  formatMoney,
+  downloadOrShareBlob,
+  openIosBlobPreviewWindow,
+} from "@/shared/lib";
 import { ActionInfoModal } from "@/shared/ui";
 import { AppShell } from "@/widgets/app-shell";
 import {
@@ -101,6 +105,7 @@ export function AnalyticsPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -143,20 +148,18 @@ export function AnalyticsPageContent() {
   useEffect(() => { load(); }, [load]);
 
   const handleExportPdf = async () => {
+    setExportError(null);
     setExporting(true);
+    const iosPreview = openIosBlobPreviewWindow();
     try {
       const { blob, filename } = await exportMonthlyReport({
         year: currentYear,
         month: now.getMonth() + 1,
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await downloadOrShareBlob(blob, filename, iosPreview);
+    } catch (err) {
+      if (iosPreview && !iosPreview.closed) iosPreview.close();
+      setExportError((err as Error)?.message ?? "Не удалось экспортировать PDF");
     } finally {
       setExporting(false);
     }
@@ -245,6 +248,11 @@ export function AnalyticsPageContent() {
     >
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-5">
+          {exportError ? (
+            <div className="alert alert-warn" role="alert">
+              {exportError}
+            </div>
+          ) : null}
 
           {/* Расходы по категориям (donut) */}
           <article className="card p-5 md:p-6">
@@ -433,7 +441,54 @@ export function AnalyticsPageContent() {
             <article className="card p-5 md:p-6">
               <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Норма сбережений</h2>
               <p className="mt-0.5 text-xs text-[var(--ink-muted)]">Последние {savingsRate.length} мес. — сколько откладываете от дохода</p>
-              <div className="mt-4 overflow-x-auto">
+
+              {/* Мобильная версия: карточки */}
+              <div className="mt-4 space-y-3 md:hidden">
+                {savingsRate.map((s) => {
+                  const badge = STATUS_BADGE[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-700" };
+                  const barH = Math.max(4, Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 40));
+                  const barColor =
+                    s.status === "good" ? "#166534" : s.status === "risk" ? "#9f1239" : "#b45309";
+                  return (
+                    <div
+                      key={s.month}
+                      className="rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-[var(--ink-strong)]">{getMonthLabel(s.month)}</p>
+                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.cls}`}>{badge.label}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">Доход</p>
+                          <p className="mono font-medium text-[#166534]">{formatMoney(s.income)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">Расход</p>
+                          <p className="mono font-medium text-[#9f1239]">{formatMoney(s.expense)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">Сбережения</p>
+                          <p className="mono font-semibold text-[var(--ink-strong)]">{formatMoney(s.saved)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">% от дохода</p>
+                          <p className="mono font-semibold text-[var(--ink-strong)]">{s.savings_rate_pct}%</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-end gap-1 rounded-lg bg-white/60 px-2 py-2">
+                        <div
+                          className="min-h-[4px] flex-1 rounded-t-sm transition-[height]"
+                          style={{ height: `${barH}px`, backgroundColor: barColor }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Десктоп: таблица */}
+              <div className="mt-4 hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--line)]">
@@ -464,9 +519,9 @@ export function AnalyticsPageContent() {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 flex items-end gap-1.5">
+              <div className="mt-4 hidden items-end gap-1.5 md:flex">
                 {savingsRate.map((s) => (
-                  <div key={s.month} className="flex-1 flex flex-col items-center gap-1">
+                  <div key={s.month} className="flex flex-1 flex-col items-center gap-1">
                     <div className="w-full rounded-t-sm" style={{
                       height: `${Math.max(4, Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 48))}px`,
                       backgroundColor: s.status === "good" ? "#166534" : s.status === "risk" ? "#9f1239" : "#b45309",

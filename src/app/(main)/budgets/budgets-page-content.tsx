@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatMoney } from "@/shared/lib";
+import { formatMoney, useBodyScrollLock } from "@/shared/lib";
 import { AppShell } from "@/widgets/app-shell";
 import {
   getBudgets,
@@ -68,6 +68,10 @@ export function BudgetsSection() {
   const [isGated, setIsGated] = useState(false);
   const [editBudget, setEditBudget] = useState<Budget | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const budgetOverlayOpen =
+    modalOpen || editBudget !== null || deleteConfirmId !== null;
+  useBodyScrollLock(budgetOverlayOpen);
 
   const loadBudgets = useCallback(() => {
     return getBudgets()
@@ -271,124 +275,142 @@ export function BudgetsSection() {
 
       {/* Модал создания */}
       {modalOpen && (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[80] overflow-hidden">
           <button
             aria-label="Закрыть"
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setModalOpen(false)}
             type="button"
           />
-          <section className="absolute bottom-0 left-0 right-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:max-h-[85vh] md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Новый бюджет</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
-            </div>
-            <form onSubmit={handleCreate} className="grid gap-3">
-              {formError && (
-                <div className={`alert ${isGated ? "alert-info" : "alert-warn"}`}>
-                  {formError}
-                  {isGated && (
-                    <a href="/pro" className="ml-2 underline font-medium">Перейти на Pro →</a>
-                  )}
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center md:items-center md:pt-8">
+            <section className="pointer-events-auto flex max-h-[min(92dvh,100%)] w-full max-w-[480px] flex-col rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] shadow-[0_-12px_48px_-16px_rgba(15,23,42,0.25)] md:max-h-[min(85dvh,calc(100dvh-4rem))] md:rounded-2xl md:shadow-2xl">
+              <div className="flex shrink-0 flex-col border-b border-[var(--line)] px-4 pb-3 pt-2 md:px-6 md:pb-4 md:pt-4">
+                <div className="mb-2 flex justify-center md:hidden" aria-hidden>
+                  <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
                 </div>
-              )}
-              <label className="auth-field">
-                <span>Категория</span>
-                <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} required>
-                  <option value="">Выберите категорию</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="auth-field">
-                <span>Лимит на месяц, {formCurrency}</span>
-                <input
-                  value={formLimit}
-                  onChange={(e) => setFormLimit(formatAmountInput(e.target.value))}
-                  placeholder="50 000"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-              </label>
-              <label className="auth-field">
-                <span>Валюта</span>
-                <select value={formCurrency} onChange={(e) => setFormCurrency(e.target.value)}>
-                  <option value="KZT">KZT</option>
-                  <option value="USD">USD</option>
-                  <option value="RUB">RUB</option>
-                </select>
-              </label>
-              <div className="mt-2 flex gap-2">
-                <button className="action-btn flex-1" type="submit" disabled={submitting || isGated}>
-                  {submitting ? "Создаём…" : "Создать"}
-                </button>
-                <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Отмена</button>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Новый бюджет</h3>
+                  <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
+                </div>
               </div>
-            </form>
-          </section>
+              <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
+                <form onSubmit={handleCreate} className="grid gap-3 pb-2">
+                  {formError && (
+                    <div className={`alert ${isGated ? "alert-info" : "alert-warn"}`}>
+                      {formError}
+                      {isGated && (
+                        <a href="/pro" className="ml-2 font-medium underline">Перейти на Pro →</a>
+                      )}
+                    </div>
+                  )}
+                  <label className="auth-field">
+                    <span>Категория</span>
+                    <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} required>
+                      <option value="">Выберите категорию</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="auth-field">
+                    <span>Лимит на месяц, {formCurrency}</span>
+                    <input
+                      value={formLimit}
+                      onChange={(e) => setFormLimit(formatAmountInput(e.target.value))}
+                      placeholder="50 000"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className="auth-field">
+                    <span>Валюта</span>
+                    <select value={formCurrency} onChange={(e) => setFormCurrency(e.target.value)}>
+                      <option value="KZT">KZT</option>
+                      <option value="USD">USD</option>
+                      <option value="RUB">RUB</option>
+                    </select>
+                  </label>
+                  <div className="sticky bottom-0 z-[1] flex flex-col-reverse gap-2 bg-[var(--surface-1)] pt-2 pb-1 sm:flex-row sm:items-center md:static md:bg-transparent md:pt-0">
+                    <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setModalOpen(false)}>Отмена</button>
+                    <button className="action-btn w-full sm:flex-1" type="submit" disabled={submitting || isGated}>
+                      {submitting ? "Создаём…" : "Создать"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
       {/* Модал редактирования */}
       {editBudget && (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[80] overflow-hidden">
           <button
             aria-label="Закрыть"
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setEditBudget(null)}
             type="button"
           />
-          <section className="absolute bottom-0 left-0 right-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:max-h-[85vh] md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-                Редактировать — {editBudget.category?.name ?? editBudget.categoryId}
-              </h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setEditBudget(null)}>Закрыть</button>
-            </div>
-            <form onSubmit={handleEdit} className="grid gap-3">
-              {formError && <div className="alert alert-warn">{formError}</div>}
-              <label className="auth-field">
-                <span>Лимит на месяц, {formCurrency}</span>
-                <input
-                  value={formLimit}
-                  onChange={(e) => setFormLimit(formatAmountInput(e.target.value))}
-                  placeholder="50 000"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                />
-              </label>
-              <label className="auth-field">
-                <span>Валюта</span>
-                <select value={formCurrency} onChange={(e) => setFormCurrency(e.target.value)}>
-                  <option value="KZT">KZT</option>
-                  <option value="USD">USD</option>
-                  <option value="RUB">RUB</option>
-                </select>
-              </label>
-              <div className="mt-2 flex gap-2">
-                <button className="action-btn flex-1" type="submit" disabled={submitting}>
-                  {submitting ? "Сохраняем…" : "Сохранить"}
-                </button>
-                <button className="tx-inline-btn" type="button" onClick={() => setEditBudget(null)}>Отмена</button>
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center md:items-center md:pt-8">
+            <section className="pointer-events-auto flex max-h-[min(92dvh,100%)] w-full max-w-[480px] flex-col rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] shadow-[0_-12px_48px_-16px_rgba(15,23,42,0.25)] md:max-h-[min(85dvh,calc(100dvh-4rem))] md:rounded-2xl md:shadow-2xl">
+              <div className="flex shrink-0 flex-col border-b border-[var(--line)] px-4 pb-3 pt-2 md:px-6 md:pb-4 md:pt-4">
+                <div className="mb-2 flex justify-center md:hidden" aria-hidden>
+                  <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
+                    Редактировать — {editBudget.category?.name ?? editBudget.categoryId}
+                  </h3>
+                  <button className="tx-inline-btn" type="button" onClick={() => setEditBudget(null)}>Закрыть</button>
+                </div>
               </div>
-            </form>
-          </section>
+              <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
+                <form onSubmit={handleEdit} className="grid gap-3 pb-2">
+                  {formError && <div className="alert alert-warn">{formError}</div>}
+                  <label className="auth-field">
+                    <span>Лимит на месяц, {formCurrency}</span>
+                    <input
+                      value={formLimit}
+                      onChange={(e) => setFormLimit(formatAmountInput(e.target.value))}
+                      placeholder="50 000"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className="auth-field">
+                    <span>Валюта</span>
+                    <select value={formCurrency} onChange={(e) => setFormCurrency(e.target.value)}>
+                      <option value="KZT">KZT</option>
+                      <option value="USD">USD</option>
+                      <option value="RUB">RUB</option>
+                    </select>
+                  </label>
+                  <div className="sticky bottom-0 z-[1] flex flex-col-reverse gap-2 bg-[var(--surface-1)] pt-2 pb-1 sm:flex-row sm:items-center md:static md:bg-transparent md:pt-0">
+                    <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setEditBudget(null)}>Отмена</button>
+                    <button className="action-btn w-full sm:flex-1" type="submit" disabled={submitting}>
+                      {submitting ? "Сохраняем…" : "Сохранить"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
       {/* Подтверждение удаления */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-[82]">
+        <div className="fixed inset-0 z-[82] overflow-hidden">
           <button
             aria-label="Закрыть"
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setDeleteConfirmId(null)}
             type="button"
           />
-          <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
+          <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-[var(--surface-1)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6 md:pb-6">
             <p className="font-medium text-[var(--ink-strong)]">Удалить бюджет?</p>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">
               Лимит по категории будет удалён. Исторические траты не изменятся.

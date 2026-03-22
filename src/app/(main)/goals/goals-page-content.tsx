@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatMoney } from "@/shared/lib";
+import { formatMoney, useBodyScrollLock } from "@/shared/lib";
 import { AppShell } from "@/widgets/app-shell";
 import {
   getGoals,
@@ -103,6 +103,13 @@ export function GoalsSection() {
   // Редактирование / удаление
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const goalsOverlayOpen =
+    modalOpen ||
+    editGoal !== null ||
+    goalDetailId !== null ||
+    deleteConfirmId !== null;
+  useBodyScrollLock(goalsOverlayOpen);
 
   const loadGoals = useCallback(() => {
     return getGoals()
@@ -364,27 +371,36 @@ export function GoalsSection() {
 
       {/* Модал создания */}
       {modalOpen && (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[80] overflow-hidden">
           <button aria-label="Закрыть" className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" onClick={() => setModalOpen(false)} type="button" />
-          <section className="absolute bottom-0 left-0 right-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:max-h-[85vh] md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Новая цель</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
-            </div>
-            <GoalForm
-              name={formName} setName={setFormName}
-              target={formTarget} setTarget={setFormTarget}
-              current={formCurrent} setCurrent={setFormCurrent}
-              date={formDate} setDate={setFormDate}
-              currency={formCurrency} setCurrency={setFormCurrency}
-              onSubmit={handleCreateGoal}
-              submitting={submitting}
-              error={formError}
-              isGated={isGated}
-              submitLabel="Создать цель"
-              onCancel={() => setModalOpen(false)}
-            />
-          </section>
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center md:items-center md:pt-8">
+            <section className="pointer-events-auto flex max-h-[min(92dvh,100%)] w-full max-w-[480px] flex-col rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] shadow-[0_-12px_48px_-16px_rgba(15,23,42,0.25)] md:max-h-[min(85dvh,calc(100dvh-4rem))] md:rounded-2xl md:shadow-2xl">
+              <div className="flex shrink-0 flex-col border-b border-[var(--line)] px-4 pb-3 pt-2 md:px-6 md:pb-4 md:pt-4">
+                <div className="mb-2 flex justify-center md:hidden" aria-hidden>
+                  <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Новая цель</h3>
+                  <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
+                <GoalForm
+                  name={formName} setName={setFormName}
+                  target={formTarget} setTarget={setFormTarget}
+                  current={formCurrent} setCurrent={setFormCurrent}
+                  date={formDate} setDate={setFormDate}
+                  currency={formCurrency} setCurrency={setFormCurrency}
+                  onSubmit={handleCreateGoal}
+                  submitting={submitting}
+                  error={formError}
+                  isGated={isGated}
+                  submitLabel="Создать цель"
+                  onCancel={() => setModalOpen(false)}
+                />
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
@@ -394,19 +410,26 @@ export function GoalsSection() {
         if (!goal) return null;
         const hasMoreEntries = entries.length < entriesTotal;
         return (
-          <div className="fixed inset-0 z-[81]">
+          <div className="fixed inset-0 z-[81] overflow-hidden">
             <button aria-label="Закрыть" className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" onClick={() => setGoalDetailId(null)} type="button" />
-            <section className="absolute bottom-0 left-0 right-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:max-h-[88vh] md:w-[540px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{goal.name}</h3>
-                  <p className="mono text-xs text-[var(--ink-muted)]">
-                    {formatMoney(goal.current)} из {formatMoney(goal.target)} · {goal.progress_percent ?? 0}%
-                  </p>
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center md:items-center md:pt-8">
+              <section className="pointer-events-auto flex max-h-[min(92dvh,100%)] w-full max-w-[540px] flex-col rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] shadow-[0_-12px_48px_-16px_rgba(15,23,42,0.25)] md:max-h-[min(88dvh,calc(100dvh-4rem))] md:rounded-2xl md:shadow-2xl">
+                <div className="flex shrink-0 flex-col border-b border-[var(--line)] px-4 pb-3 pt-2 md:px-6 md:pb-4 md:pt-4">
+                  <div className="mb-2 flex justify-center md:hidden" aria-hidden>
+                    <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{goal.name}</h3>
+                      <p className="mono mt-0.5 text-xs text-[var(--ink-muted)]">
+                        {formatMoney(goal.current)} из {formatMoney(goal.target)} · {goal.progress_percent ?? 0}%
+                      </p>
+                    </div>
+                    <button className="tx-inline-btn shrink-0" type="button" onClick={() => setGoalDetailId(null)}>Закрыть</button>
+                  </div>
                 </div>
-                <button className="tx-inline-btn" type="button" onClick={() => setGoalDetailId(null)}>Закрыть</button>
-              </div>
 
+                <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
               {/* Форма операции */}
               <form onSubmit={handleAddEntry} className="grid gap-3 rounded-xl border border-[var(--line)] p-3 md:p-4">
                 <p className="text-sm font-medium text-[var(--ink-strong)]">Пополнение или снятие</p>
@@ -490,11 +513,11 @@ export function GoalsSection() {
                         <p className="text-xs text-[var(--ink-muted)]">операций</p>
                       </div>
                       <div className="rounded-lg bg-[var(--surface-2)] p-2.5 text-center">
-                        <p className="mono text-base font-semibold text-[#166534]">{formatMoney(analytics.totalAdded) || `${((analytics.totalAdded_minor ?? 0) / 100).toLocaleString("ru-KZ")} ₸`}</p>
+                        <p className="mono text-base font-semibold text-[#166534]">{formatMoney(analytics.totalAdded) || `${(analytics.totalAdded_minor ?? 0).toLocaleString("ru-KZ")} ₸`}</p>
                         <p className="text-xs text-[var(--ink-muted)]">пополнено</p>
                       </div>
                       <div className="rounded-lg bg-[var(--surface-2)] p-2.5 text-center">
-                        <p className="mono text-base font-semibold text-[#9f1239]">{formatMoney(analytics.totalWithdrawn) || `${((analytics.totalWithdrawn_minor ?? 0) / 100).toLocaleString("ru-KZ")} ₸`}</p>
+                        <p className="mono text-base font-semibold text-[#9f1239]">{formatMoney(analytics.totalWithdrawn) || `${(analytics.totalWithdrawn_minor ?? 0).toLocaleString("ru-KZ")} ₸`}</p>
                         <p className="text-xs text-[var(--ink-muted)]">снято</p>
                       </div>
                     </div>
@@ -506,8 +529,8 @@ export function GoalsSection() {
                           {analytics.byMonth.map((row) => {
                             const [y, m] = row.month.split("-").map(Number);
                             const label = m && y ? `${MONTH_NAMES[m - 1]} ${y}` : row.month;
-                            const addedStr = formatMoney(row.added) || `+${((row.added_minor ?? 0) / 100).toLocaleString("ru-KZ")} ₸`;
-                            const withdrawnStr = formatMoney(row.withdrawn) || `−${((row.withdrawn_minor ?? 0) / 100).toLocaleString("ru-KZ")} ₸`;
+                            const addedStr = formatMoney(row.added) || `+${(row.added_minor ?? 0).toLocaleString("ru-KZ")} ₸`;
+                            const withdrawnStr = formatMoney(row.withdrawn) || `−${(row.withdrawn_minor ?? 0).toLocaleString("ru-KZ")} ₸`;
                             const hasWithdrawn = (row.withdrawn_minor ?? 0) !== 0;
                             return (
                               <li key={row.month} className="flex items-center justify-between gap-2 rounded-lg px-1 py-0.5">
@@ -527,42 +550,53 @@ export function GoalsSection() {
                   <p className="mt-2 text-sm text-[var(--ink-muted)]">Нет данных</p>
                 )}
               </div>
-            </section>
+                </div>
+              </section>
+            </div>
           </div>
         );
       })()}
 
       {/* Модал редактирования */}
       {editGoal && (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[80] overflow-hidden">
           <button aria-label="Закрыть" className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" onClick={() => setEditGoal(null)} type="button" />
-          <section className="absolute bottom-0 left-0 right-0 max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:max-h-[85vh] md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Редактировать — {editGoal.name}</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setEditGoal(null)}>Закрыть</button>
-            </div>
-            <GoalForm
-              name={formName} setName={setFormName}
-              target={formTarget} setTarget={setFormTarget}
-              current={formCurrent} setCurrent={setFormCurrent}
-              date={formDate} setDate={setFormDate}
-              currency={formCurrency} setCurrency={setFormCurrency}
-              onSubmit={handleEditGoal}
-              submitting={submitting}
-              error={formError}
-              isGated={false}
-              submitLabel="Сохранить"
-              onCancel={() => setEditGoal(null)}
-            />
-          </section>
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center md:items-center md:pt-8">
+            <section className="pointer-events-auto flex max-h-[min(92dvh,100%)] w-full max-w-[480px] flex-col rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] shadow-[0_-12px_48px_-16px_rgba(15,23,42,0.25)] md:max-h-[min(85dvh,calc(100dvh-4rem))] md:rounded-2xl md:shadow-2xl">
+              <div className="flex shrink-0 flex-col border-b border-[var(--line)] px-4 pb-3 pt-2 md:px-6 md:pb-4 md:pt-4">
+                <div className="mb-2 flex justify-center md:hidden" aria-hidden>
+                  <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Редактировать — {editGoal.name}</h3>
+                  <button className="tx-inline-btn" type="button" onClick={() => setEditGoal(null)}>Закрыть</button>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
+                <GoalForm
+                  name={formName} setName={setFormName}
+                  target={formTarget} setTarget={setFormTarget}
+                  current={formCurrent} setCurrent={setFormCurrent}
+                  date={formDate} setDate={setFormDate}
+                  currency={formCurrency} setCurrency={setFormCurrency}
+                  onSubmit={handleEditGoal}
+                  submitting={submitting}
+                  error={formError}
+                  isGated={false}
+                  submitLabel="Сохранить"
+                  onCancel={() => setEditGoal(null)}
+                />
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
       {/* Подтверждение удаления */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-[82]">
+        <div className="fixed inset-0 z-[82] overflow-hidden">
           <button aria-label="Закрыть" className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" onClick={() => setDeleteConfirmId(null)} type="button" />
-          <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
+          <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-[var(--surface-1)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6 md:pb-6">
             <p className="font-medium text-[var(--ink-strong)]">Удалить цель?</p>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">История операций также будет удалена. Это действие нельзя отменить.</p>
             <div className="mt-4 flex gap-2">
@@ -609,7 +643,7 @@ function GoalForm({ name, setName, target, setTarget, current, setCurrent, date,
     return d ? d.replace(/\B(?=(\d{3})+(?!\d))/g, " ") : "";
   }
   return (
-    <form onSubmit={onSubmit} className="grid gap-3">
+    <form onSubmit={onSubmit} className="grid gap-3 pb-2">
       {error && (
         <div className={`alert ${isGated ? "alert-info" : "alert-warn"}`}>
           {error}
@@ -640,11 +674,11 @@ function GoalForm({ name, setName, target, setTarget, current, setCurrent, date,
           <option value="RUB">RUB</option>
         </select>
       </label>
-      <div className="mt-1 flex gap-2">
-        <button className="action-btn flex-1" type="submit" disabled={submitting || isGated}>
+      <div className="sticky bottom-0 z-[1] mt-1 flex flex-col-reverse gap-2 bg-[var(--surface-1)] pt-2 pb-1 sm:flex-row sm:items-center md:static md:bg-transparent md:pt-0">
+        <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={onCancel}>Отмена</button>
+        <button className="action-btn w-full sm:flex-1" type="submit" disabled={submitting || isGated}>
           {submitting ? "Сохраняем…" : submitLabel}
         </button>
-        <button className="tx-inline-btn" type="button" onClick={onCancel}>Отмена</button>
       </div>
     </form>
   );

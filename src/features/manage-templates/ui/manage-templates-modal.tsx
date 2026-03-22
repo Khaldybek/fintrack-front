@@ -20,7 +20,7 @@ function formatTemplateAmount(t: TransactionTemplate): string {
     return t.amount.formatted;
   }
   if (typeof t.amount === "string" && t.amount) return t.amount;
-  return `${(Math.abs(t.amount_minor) / 100).toLocaleString("ru-KZ")} ₸`;
+  return `${Math.abs(t.amount_minor).toLocaleString("ru-KZ")} ₸`;
 }
 
 export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModalProps) {
@@ -76,7 +76,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
       const tmpl = await createTransactionTemplate({
         name: name.trim(),
         categoryId,
-        amountMinor: -Math.round(amountNum * 100),
+        amountMinor: -Math.round(amountNum),
       });
       setTemplates((prev) => [...prev, tmpl]);
       setName("");

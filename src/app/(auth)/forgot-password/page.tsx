@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/app/providers/auth-provider";
 import { AuthShell } from "@/shared/ui";
 import { ROUTES } from "@/shared/config";
 import { forgotPassword } from "@/shared/api";
 
 export default function ForgotPasswordPage() {
+  const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,12 +87,24 @@ export default function ForgotPasswordPage() {
           </button>
         </form>
       )}
-      <p className="mt-4 text-sm text-[var(--ink-soft)]">
-        Вспомнили пароль?{" "}
-        <Link className="font-semibold text-[var(--ink-strong)]" href={ROUTES.login}>
-          Вернуться ко входу
-        </Link>
-      </p>
+      <div className="mt-4 space-y-3 text-sm text-[var(--ink-soft)]">
+        {isAuthenticated && (
+          <p>
+            <Link
+              className="font-semibold text-[var(--ink-strong)] underline decoration-[var(--line)] underline-offset-2 hover:decoration-[var(--ink-strong)]"
+              href={ROUTES.profile}
+            >
+              ← Вернуться в профиль
+            </Link>
+          </p>
+        )}
+        <p>
+          Вспомнили пароль?{" "}
+          <Link className="font-semibold text-[var(--ink-strong)]" href={ROUTES.login}>
+            Вернуться ко входу
+          </Link>
+        </p>
+      </div>
     </AuthShell>
   );
 }

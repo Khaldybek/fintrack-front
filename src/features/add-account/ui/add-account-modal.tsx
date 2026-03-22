@@ -55,7 +55,10 @@ export function AddAccountModal({
         onClick={onClose}
         type="button"
       />
-      <section className="relative z-10 w-full max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:max-h-[85vh] md:w-[420px] md:rounded-2xl md:p-6 md:my-4">
+      <section className="relative z-10 w-full max-h-[90vh] overflow-y-auto rounded-t-[1.35rem] border border-[var(--line)] bg-[var(--surface-1)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_40px_-12px_rgba(15,23,42,0.2)] md:my-4 md:max-h-[85vh] md:w-[420px] md:rounded-2xl md:p-6 md:pb-6 md:shadow-2xl">
+        <div className="mb-1 flex justify-center md:hidden" aria-hidden>
+          <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
+        </div>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <p className="metric-label">Новый счёт</p>

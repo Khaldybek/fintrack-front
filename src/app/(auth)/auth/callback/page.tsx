@@ -1,44 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers/auth-provider";
 import { ROUTES } from "@/shared/config";
+import { parseOAuthRedirectLocation, parseOAuthUser } from "@/shared/lib";
 
 /**
  * Страница приёма редиректа после Google OAuth.
- * Бэкенд редиректит на FRONTEND_URL#access_token=...&expires_in=...&user=...
+ * Бэкенд редиректит на FRONTEND_URL с токенами в hash (#access_token=...) или в query (?access_token=...).
+ * На iPhone часто приходит именно query — см. parseOAuthRedirectLocation.
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
   const { setSession } = useAuth();
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const doneRef = useRef(false);
 
   useEffect(() => {
-    const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
-    if (!hash) {
-      setStatus("error");
-      return;
-    }
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const userStr = params.get("user");
-    if (!accessToken || !userStr) {
-      setStatus("error");
-      return;
-    }
-    try {
-      const user = JSON.parse(decodeURIComponent(userStr)) as {
-        id: string;
-        email: string;
-        name?: string | null;
-      };
-      setSession(accessToken, user);
-      setStatus("ok");
-      window.location.replace(ROUTES.home);
-    } catch {
-      setStatus("error");
-    }
+    if (typeof window === "undefined") return;
+
+    const applyRedirect = (loc: Location) => {
+      if (doneRef.current) return;
+
+      const parsed = parseOAuthRedirectLocation(loc);
+      if (!parsed.ok) {
+        if (parsed.reason === "oauth_error") {
+          doneRef.current = true;
+          const desc = parsed.oauthErrorDescription
+            ? decodeURIComponent(parsed.oauthErrorDescription.replace(/\+/g, " "))
+            : "";
+          setErrorDetail(
+            [parsed.oauthError, desc].filter(Boolean).join(": ") || "OAuth отклонён",
+          );
+          setStatus("error");
+          return;
+        }
+        return;
+      }
+
+      try {
+        const user = parseOAuthUser(parsed.userRaw);
+        doneRef.current = true;
+        setSession(parsed.accessToken, user);
+        setStatus("ok");
+        window.location.replace(ROUTES.home);
+      } catch {
+        doneRef.current = true;
+        setErrorDetail("Некорректные данные профиля в ответе OAuth.");
+        setStatus("error");
+      }
+    };
+
+    // Сразу и с задержкой: в iOS Safari иногда hash/query доступны не в первый тик после редиректа.
+    applyRedirect(window.location);
+    const t1 = window.setTimeout(() => applyRedirect(window.location), 0);
+    const t2 = window.setTimeout(() => applyRedirect(window.location), 100);
+    const t3 = window.setTimeout(() => {
+      if (doneRef.current) return;
+      const parsed = parseOAuthRedirectLocation(window.location);
+      if (!parsed.ok && parsed.reason === "missing") {
+        doneRef.current = true;
+        setStatus("error");
+      }
+    }, 500);
+
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
   }, [setSession]);
 
   if (status === "error") {
@@ -47,6 +79,9 @@ export default function AuthCallbackPage() {
         <p className="text-center text-[var(--ink-soft)]">
           Не удалось войти через Google. Попробуйте снова.
         </p>
+        {errorDetail ? (
+          <p className="max-w-md text-center text-xs text-[var(--ink-muted)]">{errorDetail}</p>
+        ) : null}
         <button
           type="button"
           className="action-btn"

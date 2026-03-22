@@ -5,10 +5,12 @@ import { useState } from "react";
 import { AuthShell } from "@/shared/ui";
 import { ROUTES } from "@/shared/config";
 import { useAuth } from "@/app/providers/auth-provider";
+import { useI18n } from "@/shared/i18n";
 import { getGoogleAuthUrl } from "@/shared/api";
 import type { ApiError } from "@/shared/api";
 
 export function LoginForm() {
+  const { t } = useI18n();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,9 +29,9 @@ export function LoginForm() {
       const apiErr = err as ApiError;
       if (apiErr.status === 403 && apiErr.upgradeHint) {
         setFeatureHint(apiErr.upgradeHint);
-        setError("Доступ ограничен тарифом Free.");
+        setError(t("auth.login.errorFree"));
       } else {
-        setError(apiErr.message || "Ошибка входа. Проверьте email и пароль.");
+        setError(apiErr.message || t("auth.login.errorGeneric"));
       }
     } finally {
       setLoading(false);
@@ -42,9 +44,9 @@ export function LoginForm() {
 
   return (
     <AuthShell
-      title="Вход"
-      subtitle="Продолжите работу с вашими финансами"
-      helperText="FinTrack помогает держать деньги в порядке: от транзакций до прогнозов ликвидности."
+      title={t("auth.login.title")}
+      subtitle={t("auth.login.subtitle")}
+      helperText={t("auth.login.helper")}
     >
       <form className="space-y-3" onSubmit={handleSubmit}>
         {error && (
@@ -56,7 +58,7 @@ export function LoginForm() {
           </div>
         )}
         <label className="auth-field">
-          <span>Email</span>
+          <span>{t("auth.login.email")}</span>
           <input
             placeholder="name@email.com"
             type="email"
@@ -66,7 +68,7 @@ export function LoginForm() {
           />
         </label>
         <label className="auth-field">
-          <span>Пароль</span>
+          <span>{t("auth.login.password")}</span>
           <input
             placeholder="Введите пароль"
             type="password"
@@ -79,13 +81,13 @@ export function LoginForm() {
         <div className="flex items-center justify-between pt-1">
           <label className="inline-flex items-center gap-2 text-sm text-[var(--ink-soft)]">
             <input type="checkbox" />
-            Запомнить меня
+            {t("auth.login.remember")}
           </label>
           <Link
             className="text-sm font-semibold text-[var(--ink-strong)] hover:underline"
             href={ROUTES.forgotPassword}
           >
-            Забыли пароль?
+            {t("auth.login.forgot")}
           </Link>
         </div>
 
@@ -94,7 +96,7 @@ export function LoginForm() {
           type="submit"
           disabled={loading}
         >
-          {loading ? "Вход…" : "Войти"}
+          {loading ? t("auth.login.submitting") : t("auth.login.submit")}
         </button>
 
         <button
@@ -102,14 +104,14 @@ export function LoginForm() {
           type="button"
           onClick={handleGoogle}
         >
-          <span className="mono text-xs">G</span> Войти через Google
+          <span className="mono text-xs">G</span> {t("auth.login.google")}
         </button>
       </form>
 
       <p className="mt-4 text-sm text-[var(--ink-soft)]">
-        Нет аккаунта?{" "}
+        {t("auth.login.noAccount")}{" "}
         <Link className="font-semibold" href={ROUTES.register}>
-          Зарегистрироваться
+          {t("auth.login.register")}
         </Link>
       </p>
     </AuthShell>

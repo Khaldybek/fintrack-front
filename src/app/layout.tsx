@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "@/app/styles/globals.css";
+import { I18nProvider } from "@/shared/i18n";
 import { AuthProvider } from "./providers/auth-provider";
+import { DocumentLang } from "./providers/document-lang";
 
 export const metadata: Metadata = {
   title: "FinTrack",
@@ -13,9 +15,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
       <body className="antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <I18nProvider>
+          <DocumentLang />
+          <AuthProvider>{children}</AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

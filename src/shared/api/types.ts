@@ -346,18 +346,70 @@ export interface SalarySchedule {
   id: string;
   dayOfMonth: number;
   label: string | null;
+  /** Сумма в минорных единицах валюты (целые ₸), если указана при создании */
+  amountMinor?: number | null;
   createdAt: string;
 }
 
-/** POST /v1/dashboard/salary-schedules — добавить расписание (body: dayOfMonth, label). */
+/** POST /v1/dashboard/salary-schedules — добавить расписание */
 export interface CreateSalaryScheduleBody {
   dayOfMonth: number;
   label?: string;
+  /** Сумма зарплаты в минорных единицах (≥ 1), необязательно */
+  amountMinor?: number | null;
 }
 
 /** DELETE /v1/dashboard/salary-schedules/:id — ответ при удалении. */
 export interface DeleteSalaryScheduleResponse {
   success: true;
+}
+
+/** GET /v1/dashboard/charts — query: dateFrom + dateTo (YYYY-MM-DD), months 1..24 (по умолчанию 6). */
+export interface DashboardChartsQuery {
+  dateFrom: string;
+  dateTo: string;
+  /** Тренд cashflow по месяцам, 1–24, по умолчанию 6 */
+  months?: number;
+}
+
+export interface DashboardChartsPeriod {
+  dateFrom: string;
+  dateTo: string;
+}
+
+export interface DashboardExpenseByDay {
+  date: string;
+  amount_minor: number;
+  amount?: MoneyDto | string;
+}
+
+export interface DashboardExpenseByCategory {
+  categoryId: string;
+  name: string;
+  color?: string;
+  icon?: string;
+  amount_minor: number;
+  share_pct: number;
+  amount?: MoneyDto | string;
+}
+
+export interface DashboardCashflowByMonth {
+  month: string;
+  income_minor: number;
+  expense_minor: number;
+  net_minor: number;
+  income?: MoneyDto | string;
+  expense?: MoneyDto | string;
+  net?: MoneyDto | string;
+}
+
+/** GET /v1/dashboard/charts — графики для главного экрана. */
+export interface DashboardChartsResponse {
+  period: DashboardChartsPeriod;
+  currency: string;
+  expense_by_day: DashboardExpenseByDay[];
+  expense_by_category: DashboardExpenseByCategory[];
+  cashflow_by_month: DashboardCashflowByMonth[];
 }
 
 /** Универсальный объект денег { amount_minor, currency, formatted } */
@@ -700,7 +752,10 @@ export interface CreditsSummaryResponse {
   total_debt_minor: number;
   total_monthly_payment: MoneyDto | string;
   total_monthly_payment_minor: number;
-  debt_to_income_percent: number;
+  /** null, если доход не передан на бэке — нельзя считать долю платежей */
+  debt_to_income_percent: number | null;
+  /** Средневзвешенная ставка по кредитам, % */
+  avg_rate_pct?: number | null;
   /** 'good' | 'attention' | 'risk' */
   severity: "good" | "attention" | "risk" | string;
   status: "stable" | "attention" | "risk" | string;
@@ -738,12 +793,24 @@ export interface SimulatePrepaymentBody {
   extraPerMonthMinor: number;
 }
 
+/** POST /v1/credits/simulate-prepayment — помесячная амортизация с учётом ставок */
 export interface SimulatePrepaymentResponse {
-  extra_per_month: MoneyDto | string;
-  new_total_monthly: MoneyDto | string;
+  extra_per_month?: MoneyDto | string;
+  new_total_monthly?: MoneyDto | string;
+  /** Срок без доп. платежа (текущий график) */
+  baseline_months_to_payoff: number;
+  /** Срок с доп. платежом extraPerMonthMinor */
   estimated_months_to_payoff: number;
+  /** Сколько месяцев сокращает сценарий относительно baseline */
+  months_saved?: number;
+  /** Полная переплата процентами при baseline */
+  baseline_overpayment: MoneyDto | string;
+  /** Переплата процентами при досрочном сценарии */
   estimated_overpayment: MoneyDto | string;
+  /** Разница в переплате (экономия на процентах) */
+  interest_saved?: MoneyDto | string;
   severity: string;
+  explanation?: string;
 }
 
 /** GET /v1/security/sessions — только не истёкшие */
@@ -800,6 +867,25 @@ export interface UpdateSubscriptionBody {
   categoryId?: string;
 }
 
+/** GET /v1/subscriptions/summary */
+export interface SubscriptionsSummaryResponse {
+  subscriptions_count: number;
+  due_soon_count: number;
+  estimated_monthly_total?: MoneyDto | string;
+  estimated_monthly_total_minor: number;
+  currency: string;
+}
+
+/** Элемент GET /v1/subscriptions/reminders — подписка с днями до платежа */
+export interface SubscriptionReminder extends Subscription {
+  days_until_payment: number;
+}
+
+/** DELETE /v1/subscriptions/:id */
+export interface DeleteSubscriptionResponse {
+  success: true;
+}
+
 /** Домохозяйство (GET/POST /v1/household). GET возвращает null, если нет. */
 export type HouseholdMemberRole = "owner" | "member" | "viewer";
 
@@ -816,6 +902,9 @@ export interface Household {
   id: string;
   name: string;
   members: HouseholdMember[];
+  /** Иногда приходит в GET /v1/household (синхронно с overview) */
+  my_role?: HouseholdMemberRole;
+  members_count?: number;
 }
 
 export interface CreateHouseholdBody {
@@ -829,6 +918,50 @@ export interface InviteHouseholdBody {
 
 export interface PatchHouseholdMemberBody {
   role: HouseholdMemberRole;
+}
+
+/** GET /v1/household/overview — сводка семьи за период (по умолчанию текущий месяц). */
+export interface HouseholdOverviewHousehold {
+  id: string;
+  name: string;
+  my_role: HouseholdMemberRole;
+  members_count: number;
+}
+
+export interface HouseholdOverviewPeriod {
+  dateFrom: string;
+  dateTo: string;
+}
+
+export interface HouseholdOverviewTotals {
+  balance_minor: number;
+  income_minor: number;
+  expense_minor: number;
+  balance: MoneyDto;
+  income: MoneyDto;
+  expense: MoneyDto;
+}
+
+/** Баланс по участнику в обзоре семьи */
+export interface HouseholdMemberBalanceRow {
+  userId: string;
+  name: string | null;
+  role: HouseholdMemberRole;
+  balance_minor: number;
+  balance: MoneyDto;
+}
+
+export interface HouseholdOverviewResponse {
+  household: HouseholdOverviewHousehold;
+  period: HouseholdOverviewPeriod;
+  totals: HouseholdOverviewTotals;
+  members: HouseholdMember[];
+  balances_by_member: HouseholdMemberBalanceRow[];
+}
+
+export interface GetHouseholdOverviewQuery {
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 /** GET /v1/dashboard/index — фактор индекса (положительный или отрицательный). */
@@ -912,6 +1045,52 @@ export interface MonthlyReportSummaryResponse {
   summaryText: string;
   /** Одна короткая строка для шаринга (можно с эмодзи) */
   shareReadyText: string;
+}
+
+/** GET /v1/notifications — объединённая лента (дашборд, подписки, кредиты, зарплата) */
+export type NotificationSource = "dashboard" | "subscription" | "credit" | "salary";
+
+export type NotificationSeverity = "good" | "attention" | "risk";
+
+export interface NotificationItem {
+  id: string;
+  source: NotificationSource;
+  type: string;
+  title: string;
+  message: string;
+  severity: NotificationSeverity;
+  status: string;
+  date?: string | null;
+  days_left?: number | null;
+  meta?: Record<string, unknown>;
+}
+
+export interface NotificationsResponse {
+  items: NotificationItem[];
+}
+
+export interface GetNotificationsQuery {
+  /** 1..90, по умолчанию 14 */
+  daysAhead?: number;
+  /** 1..200, по умолчанию 50 */
+  limit?: number;
+  /** Включать уведомления с severity good (по умолчанию false) */
+  includeStable?: boolean;
+}
+
+/** GET /v1/notifications/count */
+export interface NotificationsCountResponse {
+  total: number;
+  unread: number;
+  by_severity: {
+    risk: number;
+    attention: number;
+    good: number;
+  };
+}
+
+export interface GetNotificationsCountQuery {
+  daysAhead?: number;
 }
 
 /** POST /v1/analytics/monthly-report/export */

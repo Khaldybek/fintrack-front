@@ -139,7 +139,7 @@ const AddTransactionModalInner = forwardRef<
     try {
       const res = await voiceParseTransaction({ text });
       const absMinor = Math.abs(res.amountMinor);
-      setAmountRaw(String(Math.round(absMinor / 100)));
+      setAmountRaw(String(Math.round(absMinor)));
       if (res.categoryId && categories.some((c) => c.id === res.categoryId)) {
         setCategoryId(res.categoryId);
       }
@@ -167,7 +167,7 @@ const AddTransactionModalInner = forwardRef<
       const category = categories.find((c) => c.id === categoryId);
       const isIncome = category?.type === "income";
       const amountMinor = hasAmount
-        ? (isIncome ? Math.round(amountNum * 100) : -Math.round(amountNum * 100))
+        ? (isIncome ? Math.round(amountNum) : -Math.round(amountNum))
         : undefined;
       const res = await suggestCategoryTransaction({ memo, amountMinor });
       setSuggestResult(res);
@@ -204,7 +204,7 @@ const AddTransactionModalInner = forwardRef<
       const res = await receiptOcrTransaction(file);
       const absMinor = Math.abs(res.amountMinor);
       if (absMinor > 0) {
-        setAmountRaw(String(Math.round(absMinor / 100)));
+        setAmountRaw(String(Math.round(absMinor)));
       }
       if (res.date) setTransactionDate(res.date);
       if (res.memo) setComment(res.memo);
