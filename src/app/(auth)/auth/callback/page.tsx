@@ -49,7 +49,7 @@ export default function AuthCallbackPage() {
         doneRef.current = true;
         setSession(parsed.accessToken, user);
         setStatus("ok");
-        window.location.replace(ROUTES.home);
+        router.replace(ROUTES.home);
       } catch {
         doneRef.current = true;
         setErrorDetail("Некорректные данные профиля в ответе OAuth.");
@@ -89,7 +89,7 @@ export default function AuthCallbackPage() {
       window.clearTimeout(t4);
       window.removeEventListener("pageshow", onPageShow);
     };
-  }, [setSession]);
+  }, [router, setSession]);
 
   if (status === "error") {
     return (

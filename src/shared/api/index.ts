@@ -1,4 +1,4 @@
-export { apiClient, setAccessToken } from "./client";
+export { apiClient, setAccessToken, getCurrentAccessToken } from "./client";
 export type { RequestConfig } from "./client";
 export {
   register,

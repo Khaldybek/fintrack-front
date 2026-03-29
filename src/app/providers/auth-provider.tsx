@@ -12,7 +12,9 @@ import {
 import { useRouter } from "next/navigation";
 import type { ApiUser } from "@/shared/api";
 import {
+  getCurrentAccessToken,
   getAccessTokenFromResponse,
+  getMe,
   login as apiLogin,
   logout as apiLogout,
   refresh,
@@ -90,8 +92,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((res) => {
         setSession(getAccessTokenFromResponse(res), res.user);
       })
-      .catch(() => {
-        clearSession();
+      .catch(async () => {
+        // iOS/Safari может блокировать refresh-cookie в cross-site сценариях.
+        // Если access token уже есть в sessionStorage, пробуем восстановить сессию через GET /me.
+        const token = getCurrentAccessToken();
+        if (!token) {
+          clearSession();
+          return;
+        }
+        try {
+          const me = await getMe();
+          setSession(token, me);
+        } catch {
+          clearSession();
+        }
       })
       .finally(() => {
         setState((s) => ({ ...s, isLoading: false }));

@@ -34,6 +34,11 @@ export function setAccessToken(token: string | null) {
   setStoredToken(token);
 }
 
+/** Текущий access token (в памяти / после восстановления из sessionStorage). */
+export function getCurrentAccessToken(): string | null {
+  return accessToken;
+}
+
 export type RequestConfig = RequestInit & {
   basePath?: string;
 };
