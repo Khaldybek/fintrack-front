@@ -43,9 +43,7 @@ export function RegisterForm() {
     }
   }
 
-  function handleGoogle() {
-    window.location.href = getGoogleAuthUrl();
-  }
+  const googleAuthUrl = getGoogleAuthUrl();
 
   return (
     <AuthShell
@@ -104,14 +102,11 @@ export function RegisterForm() {
         >
           {loading ? "Создание…" : "Создать аккаунт"}
         </button>
-        <button
-          className="auth-google"
-          type="button"
-          onClick={handleGoogle}
-        >
-          <span className="mono text-xs">G</span> Продолжить через Google
-        </button>
       </form>
+
+      <a className="auth-google mt-3" href={googleAuthUrl}>
+        <span className="mono text-xs">G</span> Продолжить через Google
+      </a>
 
       <p className="mt-4 text-sm text-[var(--ink-soft)]">
         Уже есть аккаунт?{" "}

@@ -388,6 +388,8 @@ nav {
   font-size: 0.9rem;
   font-weight: 600;
   padding: 0.72rem 0.9rem;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .tx-search {

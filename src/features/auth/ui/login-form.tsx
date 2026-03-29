@@ -38,9 +38,7 @@ export function LoginForm() {
     }
   }
 
-  function handleGoogle() {
-    window.location.href = getGoogleAuthUrl();
-  }
+  const googleAuthUrl = getGoogleAuthUrl();
 
   return (
     <AuthShell
@@ -98,15 +96,12 @@ export function LoginForm() {
         >
           {loading ? t("auth.login.submitting") : t("auth.login.submit")}
         </button>
-
-        <button
-          className="auth-google"
-          type="button"
-          onClick={handleGoogle}
-        >
-          <span className="mono text-xs">G</span> {t("auth.login.google")}
-        </button>
       </form>
+
+      {/* Ссылка <a>, не JS-навигация: надёжнее в iOS Safari и не ломается во встроенных браузерах */}
+      <a className="auth-google mt-3" href={googleAuthUrl}>
+        <span className="mono text-xs">G</span> {t("auth.login.google")}
+      </a>
 
       <p className="mt-4 text-sm text-[var(--ink-soft)]">
         {t("auth.login.noAccount")}{" "}
