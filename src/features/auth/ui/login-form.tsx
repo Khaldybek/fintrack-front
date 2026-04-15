@@ -60,6 +60,7 @@ export function LoginForm() {
           <input
             placeholder="name@email.com"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -70,6 +71,7 @@ export function LoginForm() {
           <input
             placeholder="Введите пароль"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

@@ -810,6 +810,10 @@ nav {
   color: #e2e8f0;
 }
 
+.extra-tab.active .extra-tab-lead-icon {
+  color: #e2e8f0;
+}
+
 .extra-tabbar.compact .extra-tab-desc {
   display: none;
 }

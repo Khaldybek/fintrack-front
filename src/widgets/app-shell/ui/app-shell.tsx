@@ -1,10 +1,20 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Ellipsis,
+  LayoutDashboard,
+  PieChart,
+  Target,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { useI18n } from "@/shared/i18n";
 import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
 
 export type NavKey =
   | "dashboard"
@@ -14,6 +24,22 @@ export type NavKey =
   | "budgets"
   | "goals"
   | "profile";
+
+const NAV_ICONS: Record<NavKey, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  transactions: ArrowLeftRight,
+  analytics: BarChart3,
+  planning: Target,
+  profile: User,
+  budgets: PieChart,
+  goals: Target,
+};
+
+const navIconProps = {
+  className: "h-3.5 w-3.5 shrink-0 md:h-4 md:w-4",
+  strokeWidth: 2,
+  "aria-hidden": true as const,
+};
 
 export type AppShellProps = {
   active: NavKey;
@@ -78,23 +104,28 @@ export function AppShell({
                   {subtitle}
                 </p>
               </div>
-              {actionAs ?? (actionLabel ? (
-                <button className="action-btn" type="button">
-                  {actionLabel}
-                </button>
-              ) : null)}
+              {actionAs ??
+                (actionLabel ? (
+                  <button className="action-btn" type="button">
+                    {actionLabel}
+                  </button>
+                ) : null)}
             </div>
 
             <nav className="tablet-nav mt-5 hidden gap-2 md:flex">
-              {navItems.map((item) => (
-                <Link
-                  key={item.key}
-                  className={`desktop-tab ${item.key === active ? "active" : ""}`}
-                  href={item.href}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const Icon = NAV_ICONS[item.key];
+                return (
+                  <Link
+                    key={item.key}
+                    className={`desktop-tab inline-flex items-center gap-1.5 ${item.key === active ? "active" : ""}`}
+                    href={item.href}
+                  >
+                    <Icon {...navIconProps} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
             </nav>
           </header>
 
@@ -103,37 +134,46 @@ export function AppShell({
       </main>
 
       <nav className="mobile-nav md:hidden">
-        {mobilePrimary.map((item) => (
-          <Link
-            key={item.key}
-            className={`mobile-tab ${item.key === active ? "active" : ""}`}
-            href={item.href}
-            onClick={() => setIsMoreMenuOpen(false)}
-          >
-            {item.label}
-          </Link>
-        ))}
+        {mobilePrimary.map((item) => {
+          const Icon = NAV_ICONS[item.key];
+          return (
+            <Link
+              key={item.key}
+              className={`mobile-tab flex flex-col items-center gap-0.5 ${item.key === active ? "active" : ""}`}
+              href={item.href}
+              onClick={() => setIsMoreMenuOpen(false)}
+            >
+              <Icon {...navIconProps} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
         <button
-          className={`mobile-tab ${isMoreActive || isMoreMenuOpen ? "active" : ""}`}
+          className={`mobile-tab flex flex-col items-center gap-0.5 ${isMoreActive || isMoreMenuOpen ? "active" : ""}`}
           onClick={() => setIsMoreMenuOpen((prev) => !prev)}
           type="button"
         >
-          {t("shell.more")}
+          <Ellipsis {...navIconProps} />
+          <span>{t("shell.more")}</span>
         </button>
       </nav>
 
       {isMoreMenuOpen ? (
         <div className="mobile-more-menu md:hidden">
-          {mobileSecondary.map((item) => (
-            <Link
-              key={item.key}
-              className={`mobile-more-item ${item.key === active ? "active" : ""}`}
-              href={item.href}
-              onClick={() => setIsMoreMenuOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {mobileSecondary.map((item) => {
+            const Icon = NAV_ICONS[item.key];
+            return (
+              <Link
+                key={item.key}
+                className={`mobile-more-item inline-flex items-center gap-2 ${item.key === active ? "active" : ""}`}
+                href={item.href}
+                onClick={() => setIsMoreMenuOpen(false)}
+              >
+                <Icon {...navIconProps} className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
       ) : null}
     </div>

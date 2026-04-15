@@ -1,54 +1,69 @@
 "use client";
 
+import { Package } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import type {
+  AnalyticsAnomalyItem,
+  AnalyticsCategoryItem,
+  AnalyticsCompareResponse,
+  AnalyticsHeatmapDay,
+  AnalyticsMonthlyResponse,
+  AnalyticsSavingsRateItem,
+  AnalyticsTopCategoryItem,
+  AnalyticsTrendItem,
+  DashboardIndex,
+  DashboardSummary,
+} from "@/shared/api";
 import {
-  formatMoney,
+  exportMonthlyReport,
+  getAnalyticsAnomalies,
+  getAnalyticsCategories,
+  getAnalyticsCompare,
+  getAnalyticsHeatmap,
+  getAnalyticsMonthly,
+  getAnalyticsSavingsRate,
+  getAnalyticsTopCategories,
+  getAnalyticsTrends,
+  getDashboardIndex,
+  getDashboardSummary,
+  getMonthlyReportSummary,
+} from "@/shared/api";
+import {
   downloadOrShareBlob,
+  formatMoney,
   openIosBlobPreviewWindow,
 } from "@/shared/lib";
 import { ActionInfoModal } from "@/shared/ui";
 import { AppShell } from "@/widgets/app-shell";
-import {
-  getAnalyticsCategories,
-  getAnalyticsMonthly,
-  getAnalyticsTrends,
-  getAnalyticsHeatmap,
-  getAnalyticsAnomalies,
-  getAnalyticsTopCategories,
-  getAnalyticsSavingsRate,
-  getAnalyticsCompare,
-  getMonthlyReportSummary,
-  exportMonthlyReport,
-  getDashboardSummary,
-  getDashboardIndex,
-} from "@/shared/api";
-import type {
-  AnalyticsCategoryItem,
-  AnalyticsMonthlyResponse,
-  AnalyticsTrendItem,
-  AnalyticsHeatmapDay,
-  AnalyticsAnomalyItem,
-  AnalyticsTopCategoryItem,
-  AnalyticsSavingsRateItem,
-  AnalyticsCompareResponse,
-  DashboardSummary,
-  DashboardIndex,
-} from "@/shared/api";
 
 const DEFAULT_COLORS = [
-  "#0f172a", "#334155", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0",
+  "#0f172a",
+  "#334155",
+  "#64748b",
+  "#94a3b8",
+  "#cbd5e1",
+  "#e2e8f0",
 ];
 
 const MONTH_LABELS: Record<string, string> = {
-  "01": "Янв", "02": "Фев", "03": "Мар", "04": "Апр", "05": "Май", "06": "Июн",
-  "07": "Июл", "08": "Авг", "09": "Сен", "10": "Окт", "11": "Ноя", "12": "Дек",
+  "01": "Янв",
+  "02": "Фев",
+  "03": "Мар",
+  "04": "Апр",
+  "05": "Май",
+  "06": "Июн",
+  "07": "Июл",
+  "08": "Авг",
+  "09": "Сен",
+  "10": "Окт",
+  "11": "Ноя",
+  "12": "Дек",
 };
 
 function getMonthLabel(ym: string): string {
   const parts = ym.split("-");
-  return parts.length === 2 ? MONTH_LABELS[parts[1]] ?? parts[1] : ym;
+  return parts.length === 2 ? (MONTH_LABELS[parts[1]] ?? parts[1]) : ym;
 }
-
 
 function toMinor(value: unknown): number {
   if (typeof value === "number") return value;
@@ -79,12 +94,20 @@ export function AnalyticsPageContent() {
   const now = new Date();
   const currentYear = now.getFullYear();
 
-  const firstDayOfMonth = toLocalDateString(new Date(currentYear, now.getMonth(), 1));
-  const lastDayOfMonth = toLocalDateString(new Date(currentYear, now.getMonth() + 1, 0));
+  const firstDayOfMonth = toLocalDateString(
+    new Date(currentYear, now.getMonth(), 1),
+  );
+  const lastDayOfMonth = toLocalDateString(
+    new Date(currentYear, now.getMonth() + 1, 0),
+  );
 
   // Previous month for compare
-  const prevMonthStart = toLocalDateString(new Date(currentYear, now.getMonth() - 1, 1));
-  const prevMonthEnd = toLocalDateString(new Date(currentYear, now.getMonth(), 0));
+  const prevMonthStart = toLocalDateString(
+    new Date(currentYear, now.getMonth() - 1, 1),
+  );
+  const prevMonthEnd = toLocalDateString(
+    new Date(currentYear, now.getMonth(), 0),
+  );
 
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [categories, setCategories] = useState<AnalyticsCategoryItem[]>([]);
@@ -96,12 +119,19 @@ export function AnalyticsPageContent() {
   const [heatmapExplanation, setHeatmapExplanation] = useState("");
   const [anomalies, setAnomalies] = useState<AnalyticsAnomalyItem[]>([]);
   const [anomaliesStatus, setAnomaliesStatus] = useState("");
-  const [topCategories, setTopCategories] = useState<AnalyticsTopCategoryItem[]>([]);
-  const [savingsRate, setSavingsRate] = useState<AnalyticsSavingsRateItem[]>([]);
+  const [topCategories, setTopCategories] = useState<
+    AnalyticsTopCategoryItem[]
+  >([]);
+  const [savingsRate, setSavingsRate] = useState<AnalyticsSavingsRateItem[]>(
+    [],
+  );
   const [compare, setCompare] = useState<AnalyticsCompareResponse | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [index, setIndex] = useState<DashboardIndex | null>(null);
-  const [reportSummary, setReportSummary] = useState<{ summaryText: string; shareReadyText: string } | null>(null);
+  const [reportSummary, setReportSummary] = useState<{
+    summaryText: string;
+    shareReadyText: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -111,41 +141,78 @@ export function AnalyticsPageContent() {
     setLoading(true);
     setError(null);
     Promise.all([
-      getAnalyticsCategories({ dateFrom: firstDayOfMonth, dateTo: lastDayOfMonth }),
+      getAnalyticsCategories({
+        dateFrom: firstDayOfMonth,
+        dateTo: lastDayOfMonth,
+      }),
       getAnalyticsMonthly(selectedYear),
       getAnalyticsTrends(6),
       getAnalyticsHeatmap(90).catch(() => ({ days: [], explanation: "" })),
       getAnalyticsAnomalies().catch(() => ({ items: [], status: "" })),
-      getAnalyticsTopCategories({ dateFrom: firstDayOfMonth, dateTo: lastDayOfMonth, limit: 5 }).catch(() => ({ date_from: "", date_to: "", items: [], total_expense: "" })),
+      getAnalyticsTopCategories({
+        dateFrom: firstDayOfMonth,
+        dateTo: lastDayOfMonth,
+        limit: 5,
+      }).catch(() => ({
+        date_from: "",
+        date_to: "",
+        items: [],
+        total_expense: "",
+      })),
       getAnalyticsSavingsRate(6).catch(() => ({ items: [] })),
-      getAnalyticsCompare({ aFrom: prevMonthStart, aTo: prevMonthEnd, bFrom: firstDayOfMonth, bTo: lastDayOfMonth }).catch(() => null),
+      getAnalyticsCompare({
+        aFrom: prevMonthStart,
+        aTo: prevMonthEnd,
+        bFrom: firstDayOfMonth,
+        bTo: lastDayOfMonth,
+      }).catch(() => null),
       getDashboardSummary().catch(() => null),
       getDashboardIndex().catch(() => null),
       getMonthlyReportSummary().catch(() => null),
     ])
-      .then(([catRes, monthlyRes, trendsRes, heatmapRes, anomaliesRes, topCatRes, savingsRes, compareRes, summaryRes, indexRes, reportSummaryRes]) => {
-        setCategories(catRes.items ?? []);
-        setTotalExpenseMinor(catRes.total_expense_minor ?? 0);
-        setTotalExpenseStr(formatMoney(catRes.total_expense));
-        setMonthly(monthlyRes);
-        setTrends(trendsRes.items ?? []);
-        setHeatmapDays(Array.isArray(heatmapRes.days) ? heatmapRes.days : []);
-        setHeatmapExplanation(heatmapRes.explanation ?? "");
-        setAnomalies(Array.isArray(anomaliesRes.items) ? anomaliesRes.items : []);
-        setAnomaliesStatus(anomaliesRes.status ?? "");
-        setTopCategories(topCatRes.items ?? []);
-        setSavingsRate(savingsRes.items ?? []);
-        setCompare(compareRes ?? null);
-        setSummary(summaryRes ?? null);
-        setIndex(indexRes ?? null);
-        setReportSummary(reportSummaryRes ?? null);
-      })
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить аналитику"))
+      .then(
+        ([
+          catRes,
+          monthlyRes,
+          trendsRes,
+          heatmapRes,
+          anomaliesRes,
+          topCatRes,
+          savingsRes,
+          compareRes,
+          summaryRes,
+          indexRes,
+          reportSummaryRes,
+        ]) => {
+          setCategories(catRes.items ?? []);
+          setTotalExpenseMinor(catRes.total_expense_minor ?? 0);
+          setTotalExpenseStr(formatMoney(catRes.total_expense));
+          setMonthly(monthlyRes);
+          setTrends(trendsRes.items ?? []);
+          setHeatmapDays(Array.isArray(heatmapRes.days) ? heatmapRes.days : []);
+          setHeatmapExplanation(heatmapRes.explanation ?? "");
+          setAnomalies(
+            Array.isArray(anomaliesRes.items) ? anomaliesRes.items : [],
+          );
+          setAnomaliesStatus(anomaliesRes.status ?? "");
+          setTopCategories(topCatRes.items ?? []);
+          setSavingsRate(savingsRes.items ?? []);
+          setCompare(compareRes ?? null);
+          setSummary(summaryRes ?? null);
+          setIndex(indexRes ?? null);
+          setReportSummary(reportSummaryRes ?? null);
+        },
+      )
+      .catch((err) =>
+        setError(err?.message ?? "Не удалось загрузить аналитику"),
+      )
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleExportPdf = async () => {
     setExportError(null);
@@ -159,7 +226,9 @@ export function AnalyticsPageContent() {
       await downloadOrShareBlob(blob, filename, iosPreview);
     } catch (err) {
       if (iosPreview && !iosPreview.closed) iosPreview.close();
-      setExportError((err as Error)?.message ?? "Не удалось экспортировать PDF");
+      setExportError(
+        (err as Error)?.message ?? "Не удалось экспортировать PDF",
+      );
     } finally {
       setExporting(false);
     }
@@ -170,7 +239,10 @@ export function AnalyticsPageContent() {
     name: item.name,
     amountStr: formatMoney(item.expense),
     amountMinor: item.expense_minor,
-    share: totalExpenseMinor > 0 ? Math.round((item.expense_minor / totalExpenseMinor) * 100) : 0,
+    share:
+      totalExpenseMinor > 0
+        ? Math.round((item.expense_minor / totalExpenseMinor) * 100)
+        : 0,
     color: DEFAULT_COLORS[i % DEFAULT_COLORS.length],
   }));
 
@@ -194,10 +266,16 @@ export function AnalyticsPageContent() {
     expenseStr: formatMoney(m.expense),
   }));
 
-  const maxChartValue = Math.max(...incomeVsExpense.flatMap((x) => [x.incomeMinor, x.expenseMinor]), 1);
+  const maxChartValue = Math.max(
+    ...incomeVsExpense.flatMap((x) => [x.incomeMinor, x.expenseMinor]),
+    1,
+  );
 
   const trendLast4 = trends.slice(-4);
-  const maxTrendBar = Math.max(...trendLast4.map((t) => Math.abs(t.net_minor)), 1);
+  const maxTrendBar = Math.max(
+    ...trendLast4.map((t) => Math.abs(t.net_minor)),
+    1,
+  );
 
   const topCategory = categoryBreakdown[0];
   const reportMonth = `${MONTH_LABELS[String(now.getMonth() + 1).padStart(2, "0")]} ${currentYear}`;
@@ -213,11 +291,18 @@ export function AnalyticsPageContent() {
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-  const maxSavingsRate = Math.max(...savingsRate.map((s) => Math.abs(s.saved_minor)), 1);
+  const maxSavingsRate = Math.max(
+    ...savingsRate.map((s) => Math.abs(s.saved_minor)),
+    1,
+  );
 
   if (loading) {
     return (
-      <AppShell active="analytics" title="Аналитика" subtitle="Структура расходов, динамика, аномалии и месячный отчёт.">
+      <AppShell
+        active="analytics"
+        title="Аналитика"
+        subtitle="Структура расходов, динамика, аномалии и месячный отчёт."
+      >
         <section className="grid grid-cols-1 gap-5">
           <div className="metric-label">Загрузка…</div>
         </section>
@@ -227,7 +312,11 @@ export function AnalyticsPageContent() {
 
   if (error) {
     return (
-      <AppShell active="analytics" title="Аналитика" subtitle="Структура расходов, динамика, аномалии и месячный отчёт.">
+      <AppShell
+        active="analytics"
+        title="Аналитика"
+        subtitle="Структура расходов, динамика, аномалии и месячный отчёт."
+      >
         <section className="grid grid-cols-1 gap-5">
           <div className="alert alert-warn">{error}</div>
         </section>
@@ -241,7 +330,12 @@ export function AnalyticsPageContent() {
       title="Аналитика"
       subtitle="Структура расходов, динамика, аномалии и месячный отчёт."
       actionAs={
-        <button type="button" className="action-btn" onClick={handleExportPdf} disabled={exporting}>
+        <button
+          type="button"
+          className="action-btn"
+          onClick={handleExportPdf}
+          disabled={exporting}
+        >
           {exporting ? "Формируем…" : "Экспорт отчёта"}
         </button>
       }
@@ -259,29 +353,51 @@ export function AnalyticsPageContent() {
             <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
               Расходы по категориям
             </h2>
-            <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{reportMonth}</p>
+            <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+              {reportMonth}
+            </p>
             {categories.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--ink-muted)]">Нет данных о расходах за текущий месяц.</p>
+              <p className="mt-4 text-sm text-[var(--ink-muted)]">
+                Нет данных о расходах за текущий месяц.
+              </p>
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-[220px_1fr] md:items-center">
                 <div
                   className="analytics-donut"
-                  style={{ background: conicGradient ? `conic-gradient(${conicGradient})` : "var(--surface-2)" }}
+                  style={{
+                    background: conicGradient
+                      ? `conic-gradient(${conicGradient})`
+                      : "var(--surface-2)",
+                  }}
                 >
                   <div className="analytics-donut-hole">
-                    <p className="mono text-xs text-[var(--ink-muted)]">Расходы</p>
+                    <p className="mono text-xs text-[var(--ink-muted)]">
+                      Расходы
+                    </p>
                     <p className="mono mt-1 text-lg font-semibold text-[var(--ink-strong)]">
-                      {totalExpenseStr || (totalExpenseMinor > 0 ? `${totalExpenseMinor.toLocaleString("ru-KZ")} ₸` : "—")}
+                      {totalExpenseStr ||
+                        (totalExpenseMinor > 0
+                          ? `${totalExpenseMinor.toLocaleString("ru-KZ")} ₸`
+                          : "—")}
                     </p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   {categoryBreakdown.map((item) => (
                     <div key={item.id} className="analytics-legend-row">
-                      <span className="analytics-dot" style={{ backgroundColor: item.color }} />
-                      <span className="font-semibold text-[var(--ink-strong)]">{item.name}</span>
-                      <span className="mono text-[var(--ink-soft)]">{item.amountStr}</span>
-                      <span className="mono text-[var(--ink-muted)]">{item.share}%</span>
+                      <span
+                        className="analytics-dot"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="font-semibold text-[var(--ink-strong)]">
+                        {item.name}
+                      </span>
+                      <span className="mono text-[var(--ink-soft)]">
+                        {item.amountStr}
+                      </span>
+                      <span className="mono text-[var(--ink-muted)]">
+                        {item.share}%
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -292,21 +408,38 @@ export function AnalyticsPageContent() {
           {/* Топ-5 категорий расходов */}
           {topCategories.length > 0 && (
             <article className="card p-5 md:p-6">
-              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Топ-5 категорий расходов</h2>
-              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{reportMonth}</p>
+              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
+                Топ-5 категорий расходов
+              </h2>
+              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                {reportMonth}
+              </p>
               <div className="mt-4 space-y-3">
                 {topCategories.map((item) => (
-                  <div key={item.categoryId} className="flex items-center gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-base">
-                      {item.icon ?? "📦"}
+                  <div
+                    key={item.categoryId}
+                    className="flex items-center gap-3"
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-base text-[var(--ink-muted)]">
+                      {item.icon ?? (
+                        <Package
+                          className="h-4 w-4"
+                          aria-hidden
+                          strokeWidth={2}
+                        />
+                      )}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium text-[var(--ink-strong)]">
-                          <span className="mr-1.5 text-xs text-[var(--ink-muted)]">#{item.rank}</span>
+                          <span className="mr-1.5 text-xs text-[var(--ink-muted)]">
+                            #{item.rank}
+                          </span>
                           {item.name}
                         </span>
-                        <span className="mono shrink-0 text-sm text-[var(--ink-strong)]">{formatMoney(item.expense)}</span>
+                        <span className="mono shrink-0 text-sm text-[var(--ink-strong)]">
+                          {formatMoney(item.expense)}
+                        </span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
@@ -315,8 +448,12 @@ export function AnalyticsPageContent() {
                             style={{ width: `${item.share_pct}%` }}
                           />
                         </div>
-                        <span className="mono shrink-0 text-xs text-[var(--ink-muted)]">{item.share_pct}%</span>
-                        <span className="shrink-0 text-xs text-[var(--ink-muted)]">{item.tx_count} опер.</span>
+                        <span className="mono shrink-0 text-xs text-[var(--ink-muted)]">
+                          {item.share_pct}%
+                        </span>
+                        <span className="shrink-0 text-xs text-[var(--ink-muted)]">
+                          {item.tx_count} опер.
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -337,23 +474,43 @@ export function AnalyticsPageContent() {
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
               >
                 {yearOptions.map((y) => (
-                  <option key={y} value={y}>{y}</option>
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
                 ))}
               </select>
             </div>
             {monthlyRows.length === 0 ? (
-              <p className="text-sm text-[var(--ink-muted)]">Нет данных за {selectedYear} год.</p>
+              <p className="text-sm text-[var(--ink-muted)]">
+                Нет данных за {selectedYear} год.
+              </p>
             ) : (
               <>
                 {incomeVsExpense.length > 0 && (
                   <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
-                    <div className="flex items-end gap-2" style={{ height: "10rem" }}>
+                    <div
+                      className="flex items-end gap-2"
+                      style={{ height: "10rem" }}
+                    >
                       {incomeVsExpense.map((m) => {
-                        const incH = Math.max(4, Math.round((m.incomeMinor / maxChartValue) * 152));
-                        const expH = Math.max(4, Math.round((m.expenseMinor / maxChartValue) * 152));
+                        const incH = Math.max(
+                          4,
+                          Math.round((m.incomeMinor / maxChartValue) * 152),
+                        );
+                        const expH = Math.max(
+                          4,
+                          Math.round((m.expenseMinor / maxChartValue) * 152),
+                        );
                         return (
-                          <div key={m.id} className="flex flex-1 flex-col items-center gap-1" title={`${m.label}: доход ${m.incomeStr}, расход ${m.expenseStr}`}>
-                            <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "8rem" }}>
+                          <div
+                            key={m.id}
+                            className="flex flex-1 flex-col items-center gap-1"
+                            title={`${m.label}: доход ${m.incomeStr}, расход ${m.expenseStr}`}
+                          >
+                            <div
+                              className="flex w-full items-end justify-center gap-0.5"
+                              style={{ height: "8rem" }}
+                            >
                               <div
                                 className="flex-1 rounded-t-sm bg-[#166534] opacity-80 transition-all"
                                 style={{ height: `${incH}px` }}
@@ -365,14 +522,22 @@ export function AnalyticsPageContent() {
                                 title={`Расход: ${m.expenseStr}`}
                               />
                             </div>
-                            <span className="text-[10px] text-[var(--ink-muted)]">{m.label}</span>
+                            <span className="text-[10px] text-[var(--ink-muted)]">
+                              {m.label}
+                            </span>
                           </div>
                         );
                       })}
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="analytics-pill"><span className="analytics-pill-dot bg-[#166534]" /> Доход</div>
-                      <div className="analytics-pill"><span className="analytics-pill-dot bg-[#9f1239]" /> Расход</div>
+                      <div className="analytics-pill">
+                        <span className="analytics-pill-dot bg-[#166534]" />{" "}
+                        Доход
+                      </div>
+                      <div className="analytics-pill">
+                        <span className="analytics-pill-dot bg-[#9f1239]" />{" "}
+                        Расход
+                      </div>
                     </div>
                   </div>
                 )}
@@ -380,10 +545,18 @@ export function AnalyticsPageContent() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-[var(--line)]">
-                        <th className="pb-2 text-left font-medium text-[var(--ink-muted)]">Месяц</th>
-                        <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Доход</th>
-                        <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Расход</th>
-                        <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Чистый</th>
+                        <th className="pb-2 text-left font-medium text-[var(--ink-muted)]">
+                          Месяц
+                        </th>
+                        <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                          Доход
+                        </th>
+                        <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                          Расход
+                        </th>
+                        <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                          Чистый
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -392,12 +565,24 @@ export function AnalyticsPageContent() {
                         const exp = toMinor(m.expense);
                         const net = inc - Math.abs(exp);
                         return (
-                          <tr key={m.month} className="border-b border-[var(--line)] last:border-0">
-                            <td className="py-2 text-[var(--ink-soft)]">{getMonthLabel(m.month)}</td>
-                            <td className="py-2 text-right font-medium text-[#166534] mono">{formatMoney(m.income)}</td>
-                            <td className="py-2 text-right font-medium text-[#9f1239] mono">{formatMoney(m.expense)}</td>
-                            <td className={`py-2 text-right mono font-semibold ${net >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}>
-                              {net >= 0 ? "+" : ""}{net.toLocaleString("ru-KZ")} ₸
+                          <tr
+                            key={m.month}
+                            className="border-b border-[var(--line)] last:border-0"
+                          >
+                            <td className="py-2 text-[var(--ink-soft)]">
+                              {getMonthLabel(m.month)}
+                            </td>
+                            <td className="py-2 text-right font-medium text-[#166534] mono">
+                              {formatMoney(m.income)}
+                            </td>
+                            <td className="py-2 text-right font-medium text-[#9f1239] mono">
+                              {formatMoney(m.expense)}
+                            </td>
+                            <td
+                              className={`py-2 text-right mono font-semibold ${net >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
+                            >
+                              {net >= 0 ? "+" : ""}
+                              {net.toLocaleString("ru-KZ")} ₸
                             </td>
                           </tr>
                         );
@@ -412,23 +597,32 @@ export function AnalyticsPageContent() {
           {/* Чистый баланс: тренд */}
           {trendLast4.length > 0 && (
             <article className="card p-5 md:p-6">
-              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Чистый баланс: тренд</h2>
+              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
+                Чистый баланс: тренд
+              </h2>
               <div className="mt-4 grid grid-cols-4 items-end gap-3">
                 {trendLast4.map((t, i, arr) => {
                   const prev = arr[i - 1]?.net_minor;
-                  const trend = prev != null && prev !== 0
-                    ? `${t.net_minor >= prev ? "+" : ""}${Math.round(((t.net_minor - prev) / Math.abs(prev)) * 100)}%`
-                    : "—";
+                  const trend =
+                    prev != null && prev !== 0
+                      ? `${t.net_minor >= prev ? "+" : ""}${Math.round(((t.net_minor - prev) / Math.abs(prev)) * 100)}%`
+                      : "—";
                   return (
                     <div key={t.month} className="space-y-2">
                       <div className="analytics-bar-wrap">
                         <div
                           className={`analytics-bar ${t.net_minor < 0 ? "!bg-[#9f1239]" : ""}`}
-                          style={{ height: `${Math.min(100, (Math.abs(t.net_minor) / maxTrendBar) * 100)}%` }}
+                          style={{
+                            height: `${Math.min(100, (Math.abs(t.net_minor) / maxTrendBar) * 100)}%`,
+                          }}
                         />
                       </div>
-                      <p className="mono text-center text-xs text-[var(--ink-strong)]">{getMonthLabel(t.month)}</p>
-                      <p className="mono text-center text-[10px] text-[var(--ink-muted)]">{trend}</p>
+                      <p className="mono text-center text-xs text-[var(--ink-strong)]">
+                        {getMonthLabel(t.month)}
+                      </p>
+                      <p className="mono text-center text-[10px] text-[var(--ink-muted)]">
+                        {trend}
+                      </p>
                     </div>
                   );
                 })}
@@ -439,47 +633,87 @@ export function AnalyticsPageContent() {
           {/* Норма сбережений */}
           {savingsRate.length > 0 && (
             <article className="card p-5 md:p-6">
-              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Норма сбережений</h2>
-              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">Последние {savingsRate.length} мес. — сколько откладываете от дохода</p>
+              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
+                Норма сбережений
+              </h2>
+              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                Последние {savingsRate.length} мес. — сколько откладываете от
+                дохода
+              </p>
 
               {/* Мобильная версия: карточки */}
               <div className="mt-4 space-y-3 md:hidden">
                 {savingsRate.map((s) => {
-                  const badge = STATUS_BADGE[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-700" };
-                  const barH = Math.max(4, Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 40));
+                  const badge = STATUS_BADGE[s.status] ?? {
+                    label: s.status,
+                    cls: "bg-gray-100 text-gray-700",
+                  };
+                  const barH = Math.max(
+                    4,
+                    Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 40),
+                  );
                   const barColor =
-                    s.status === "good" ? "#166534" : s.status === "risk" ? "#9f1239" : "#b45309";
+                    s.status === "good"
+                      ? "#166534"
+                      : s.status === "risk"
+                        ? "#9f1239"
+                        : "#b45309";
                   return (
                     <div
                       key={s.month}
                       className="rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <p className="text-sm font-semibold text-[var(--ink-strong)]">{getMonthLabel(s.month)}</p>
-                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.cls}`}>{badge.label}</span>
+                        <p className="text-sm font-semibold text-[var(--ink-strong)]">
+                          {getMonthLabel(s.month)}
+                        </p>
+                        <span
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.cls}`}
+                        >
+                          {badge.label}
+                        </span>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">Доход</p>
-                          <p className="mono font-medium text-[#166534]">{formatMoney(s.income)}</p>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+                            Доход
+                          </p>
+                          <p className="mono font-medium text-[#166534]">
+                            {formatMoney(s.income)}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">Расход</p>
-                          <p className="mono font-medium text-[#9f1239]">{formatMoney(s.expense)}</p>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+                            Расход
+                          </p>
+                          <p className="mono font-medium text-[#9f1239]">
+                            {formatMoney(s.expense)}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">Сбережения</p>
-                          <p className="mono font-semibold text-[var(--ink-strong)]">{formatMoney(s.saved)}</p>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+                            Сбережения
+                          </p>
+                          <p className="mono font-semibold text-[var(--ink-strong)]">
+                            {formatMoney(s.saved)}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">% от дохода</p>
-                          <p className="mono font-semibold text-[var(--ink-strong)]">{s.savings_rate_pct}%</p>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+                            % от дохода
+                          </p>
+                          <p className="mono font-semibold text-[var(--ink-strong)]">
+                            {s.savings_rate_pct}%
+                          </p>
                         </div>
                       </div>
                       <div className="mt-3 flex items-end gap-1 rounded-lg bg-white/60 px-2 py-2">
                         <div
                           className="min-h-[4px] flex-1 rounded-t-sm transition-[height]"
-                          style={{ height: `${barH}px`, backgroundColor: barColor }}
+                          style={{
+                            height: `${barH}px`,
+                            backgroundColor: barColor,
+                          }}
                         />
                       </div>
                     </div>
@@ -492,26 +726,58 @@ export function AnalyticsPageContent() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--line)]">
-                      <th className="pb-2 text-left font-medium text-[var(--ink-muted)]">Мес.</th>
-                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Доход</th>
-                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Расход</th>
-                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Сбережения</th>
-                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">%</th>
-                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">Статус</th>
+                      <th className="pb-2 text-left font-medium text-[var(--ink-muted)]">
+                        Мес.
+                      </th>
+                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                        Доход
+                      </th>
+                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                        Расход
+                      </th>
+                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                        Сбережения
+                      </th>
+                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                        %
+                      </th>
+                      <th className="pb-2 text-right font-medium text-[var(--ink-muted)]">
+                        Статус
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {savingsRate.map((s) => {
-                      const badge = STATUS_BADGE[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-700" };
+                      const badge = STATUS_BADGE[s.status] ?? {
+                        label: s.status,
+                        cls: "bg-gray-100 text-gray-700",
+                      };
                       return (
-                        <tr key={s.month} className="border-b border-[var(--line)] last:border-0">
-                          <td className="py-2 text-[var(--ink-soft)]">{getMonthLabel(s.month)}</td>
-                          <td className="py-2 text-right mono text-[#166534]">{formatMoney(s.income)}</td>
-                          <td className="py-2 text-right mono text-[#9f1239]">{formatMoney(s.expense)}</td>
-                          <td className="py-2 text-right mono font-medium text-[var(--ink-strong)]">{formatMoney(s.saved)}</td>
-                          <td className="py-2 text-right mono font-semibold text-[var(--ink-strong)]">{s.savings_rate_pct}%</td>
+                        <tr
+                          key={s.month}
+                          className="border-b border-[var(--line)] last:border-0"
+                        >
+                          <td className="py-2 text-[var(--ink-soft)]">
+                            {getMonthLabel(s.month)}
+                          </td>
+                          <td className="py-2 text-right mono text-[#166534]">
+                            {formatMoney(s.income)}
+                          </td>
+                          <td className="py-2 text-right mono text-[#9f1239]">
+                            {formatMoney(s.expense)}
+                          </td>
+                          <td className="py-2 text-right mono font-medium text-[var(--ink-strong)]">
+                            {formatMoney(s.saved)}
+                          </td>
+                          <td className="py-2 text-right mono font-semibold text-[var(--ink-strong)]">
+                            {s.savings_rate_pct}%
+                          </td>
                           <td className="py-2 text-right">
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>{badge.label}</span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}
+                            >
+                              {badge.label}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -521,12 +787,25 @@ export function AnalyticsPageContent() {
               </div>
               <div className="mt-4 hidden items-end gap-1.5 md:flex">
                 {savingsRate.map((s) => (
-                  <div key={s.month} className="flex flex-1 flex-col items-center gap-1">
-                    <div className="w-full rounded-t-sm" style={{
-                      height: `${Math.max(4, Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 48))}px`,
-                      backgroundColor: s.status === "good" ? "#166534" : s.status === "risk" ? "#9f1239" : "#b45309",
-                    }} />
-                    <span className="text-[9px] text-[var(--ink-muted)]">{getMonthLabel(s.month)}</span>
+                  <div
+                    key={s.month}
+                    className="flex flex-1 flex-col items-center gap-1"
+                  >
+                    <div
+                      className="w-full rounded-t-sm"
+                      style={{
+                        height: `${Math.max(4, Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 48))}px`,
+                        backgroundColor:
+                          s.status === "good"
+                            ? "#166534"
+                            : s.status === "risk"
+                              ? "#9f1239"
+                              : "#b45309",
+                      }}
+                    />
+                    <span className="text-[9px] text-[var(--ink-muted)]">
+                      {getMonthLabel(s.month)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -536,32 +815,49 @@ export function AnalyticsPageContent() {
           {/* Сравнение периодов */}
           {compare && (
             <article className="card p-5 md:p-6">
-              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Сравнение: прошлый vs текущий месяц</h2>
+              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
+                Сравнение: прошлый vs текущий месяц
+              </h2>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {[
                   { label: "Предыдущий месяц", period: compare.period_a },
                   { label: "Текущий месяц", period: compare.period_b },
                 ].map(({ label, period }) => (
-                  <div key={label} className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">{label}</p>
+                  <div
+                    key={label}
+                    className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4"
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+                      {label}
+                    </p>
                     <div className="mt-3 space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-[var(--ink-soft)]">Доход</span>
-                        <span className="mono font-medium text-[#166534]">{formatMoney(period.income)}</span>
+                        <span className="mono font-medium text-[#166534]">
+                          {formatMoney(period.income)}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-[var(--ink-soft)]">Расход</span>
-                        <span className="mono font-medium text-[#9f1239]">{formatMoney(period.expense)}</span>
+                        <span className="mono font-medium text-[#9f1239]">
+                          {formatMoney(period.expense)}
+                        </span>
                       </div>
                       <div className="flex justify-between border-t border-[var(--line)] pt-2">
                         <span className="text-[var(--ink-soft)]">Чистый</span>
-                        <span className={`mono font-semibold ${toMinor(period.net) >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}>
+                        <span
+                          className={`mono font-semibold ${toMinor(period.net) >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
+                        >
                           {formatMoney(period.net)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-[var(--ink-soft)]">Транзакций</span>
-                        <span className="mono text-[var(--ink-strong)]">{period.tx_count}</span>
+                        <span className="text-[var(--ink-soft)]">
+                          Транзакций
+                        </span>
+                        <span className="mono text-[var(--ink-strong)]">
+                          {period.tx_count}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -569,18 +865,30 @@ export function AnalyticsPageContent() {
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-[var(--line)] p-3 text-center">
-                  <p className="text-xs text-[var(--ink-muted)]">Доход изменился</p>
-                  <p className={`mono mt-1 text-lg font-bold ${compare.diff.income_change_pct >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Доход изменился
+                  </p>
+                  <p
+                    className={`mono mt-1 text-lg font-bold ${compare.diff.income_change_pct >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
+                  >
                     {fmtPct(compare.diff.income_change_pct)}
                   </p>
-                  <p className="mono text-xs text-[var(--ink-muted)]">{formatMoney(compare.diff.income_change)}</p>
+                  <p className="mono text-xs text-[var(--ink-muted)]">
+                    {formatMoney(compare.diff.income_change)}
+                  </p>
                 </div>
                 <div className="rounded-xl border border-[var(--line)] p-3 text-center">
-                  <p className="text-xs text-[var(--ink-muted)]">Расход изменился</p>
-                  <p className={`mono mt-1 text-lg font-bold ${compare.diff.expense_change_pct <= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Расход изменился
+                  </p>
+                  <p
+                    className={`mono mt-1 text-lg font-bold ${compare.diff.expense_change_pct <= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
+                  >
                     {fmtPct(compare.diff.expense_change_pct)}
                   </p>
-                  <p className="mono text-xs text-[var(--ink-muted)]">{formatMoney(compare.diff.expense_change)}</p>
+                  <p className="mono text-xs text-[var(--ink-muted)]">
+                    {formatMoney(compare.diff.expense_change)}
+                  </p>
                 </div>
               </div>
             </article>
@@ -588,31 +896,52 @@ export function AnalyticsPageContent() {
 
           {/* Финансовый отчёт месяца */}
           <article className="card p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Финансовый отчёт месяца</h2>
+            <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
+              Финансовый отчёт месяца
+            </h2>
             <div className="monthly-report mt-4">
-              <p className="mono text-xs uppercase tracking-[0.14em] text-[var(--ink-muted)]">{reportMonth}</p>
+              <p className="mono text-xs uppercase tracking-[0.14em] text-[var(--ink-muted)]">
+                {reportMonth}
+              </p>
               <p className="mono mt-2 text-2xl font-semibold text-[var(--ink-strong)]">
-                Баланс: {summary ? `${formatMoney(summary.balance)} ${summary.currency ?? ""}`.trim() : "—"}
+                Баланс:{" "}
+                {summary
+                  ? `${formatMoney(summary.balance)} ${summary.currency ?? ""}`.trim()
+                  : "—"}
               </p>
               {reportSummary && (
                 <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">AI-резюме</p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--ink-strong)]">{reportSummary.summaryText}</p>
-                  <p className="mt-2 text-xs text-[var(--ink-soft)]">{reportSummary.shareReadyText}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
+                    AI-резюме
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-strong)]">
+                    {reportSummary.summaryText}
+                  </p>
+                  <p className="mt-2 text-xs text-[var(--ink-soft)]">
+                    {reportSummary.shareReadyText}
+                  </p>
                 </div>
               )}
               <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
                 <div className="metric-row">
                   <span>Топ-категория</span>
-                  <span className="mono">{topCategory ? `${topCategory.name} ${topCategory.share}%` : "—"}</span>
+                  <span className="mono">
+                    {topCategory
+                      ? `${topCategory.name} ${topCategory.share}%`
+                      : "—"}
+                  </span>
                 </div>
                 <div className="metric-row">
                   <span>Фин. индекс</span>
-                  <span className="mono">{index != null ? `${index.score} / 100` : "—"}</span>
+                  <span className="mono">
+                    {index != null ? `${index.score} / 100` : "—"}
+                  </span>
                 </div>
                 <div className="metric-row">
                   <span>К прошлому мес.</span>
-                  <span className={`mono ${trendDelta.startsWith("+") ? "text-[#166534]" : trendDelta.startsWith("-") ? "text-[#9f1239]" : ""}`}>
+                  <span
+                    className={`mono ${trendDelta.startsWith("+") ? "text-[#166534]" : trendDelta.startsWith("-") ? "text-[#9f1239]" : ""}`}
+                  >
                     {trendDelta}
                   </span>
                 </div>
@@ -629,7 +958,11 @@ export function AnalyticsPageContent() {
                 <ActionInfoModal
                   confirmLabel="Поделиться"
                   description="Отчёт готов для публикации. Выберите канал и отправьте визуальную карточку за месяц."
-                  items={["Instagram Story (1080x1920)", "Telegram/WhatsApp как изображение", "PDF вложением по email"]}
+                  items={[
+                    "Instagram Story (1080x1920)",
+                    "Telegram/WhatsApp как изображение",
+                    "PDF вложением по email",
+                  ]}
                   title="Поделиться отчётом"
                   triggerClassName="tx-inline-btn h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
                   triggerLabel="Поделиться"
@@ -643,19 +976,29 @@ export function AnalyticsPageContent() {
           {/* Heatmap расходов */}
           {heatmapDays.length > 0 && (
             <article className="card p-5">
-              <h2 className="text-base font-semibold text-[var(--ink-strong)]">Heatmap расходов</h2>
-              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">Последние 90 дней</p>
+              <h2 className="text-base font-semibold text-[var(--ink-strong)]">
+                Heatmap расходов
+              </h2>
+              <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                Последние 90 дней
+              </p>
               <div className="mt-4 grid grid-cols-7 gap-1.5">
                 {heatmapDays.map((d, i) => {
                   const intensity = d.intensity ?? 0;
                   const bg =
-                    intensity >= 75 ? "#0f172a"
-                    : intensity >= 50 ? "#334155"
-                    : intensity >= 25 ? "#94a3b8"
-                    : intensity > 0  ? "#cbd5e1"
-                    : "#e2e8f0";
+                    intensity >= 75
+                      ? "#0f172a"
+                      : intensity >= 50
+                        ? "#334155"
+                        : intensity >= 25
+                          ? "#94a3b8"
+                          : intensity > 0
+                            ? "#cbd5e1"
+                            : "#e2e8f0";
                   const label = d.day ?? d.date ?? "";
-                  const title = label ? `${label}: ${formatMoney(d.total) || `${(d.total_minor ?? 0).toLocaleString("ru-KZ")} ₸`}` : undefined;
+                  const title = label
+                    ? `${label}: ${formatMoney(d.total) || `${(d.total_minor ?? 0).toLocaleString("ru-KZ")} ₸`}`
+                    : undefined;
                   return (
                     <div
                       key={`d-${i}`}
@@ -669,14 +1012,22 @@ export function AnalyticsPageContent() {
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-xs text-[var(--ink-muted)]">Меньше</span>
                 <div className="flex gap-1">
-                  {["#e2e8f0", "#cbd5e1", "#94a3b8", "#334155", "#0f172a"].map((c) => (
-                    <div key={c} className="h-3 w-3 rounded-sm" style={{ backgroundColor: c }} />
-                  ))}
+                  {["#e2e8f0", "#cbd5e1", "#94a3b8", "#334155", "#0f172a"].map(
+                    (c) => (
+                      <div
+                        key={c}
+                        className="h-3 w-3 rounded-sm"
+                        style={{ backgroundColor: c }}
+                      />
+                    ),
+                  )}
                 </div>
                 <span className="text-xs text-[var(--ink-muted)]">Больше</span>
               </div>
               {heatmapExplanation && (
-                <p className="mt-3 text-xs text-[var(--ink-muted)]">{heatmapExplanation}</p>
+                <p className="mt-3 text-xs text-[var(--ink-muted)]">
+                  {heatmapExplanation}
+                </p>
               )}
             </article>
           )}
@@ -685,12 +1036,18 @@ export function AnalyticsPageContent() {
           {anomalies.length > 0 ? (
             <article className="card p-5">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-[var(--ink-strong)]">Аномалии расходов</h2>
+                <h2 className="text-base font-semibold text-[var(--ink-strong)]">
+                  Аномалии расходов
+                </h2>
                 {anomaliesStatus === "anomaly_detected" && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Обнаружены</span>
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                    Обнаружены
+                  </span>
                 )}
                 {anomaliesStatus === "stable" && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Стабильно</span>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    Стабильно
+                  </span>
                 )}
               </div>
               <div className="mt-4 space-y-2">
@@ -701,20 +1058,29 @@ export function AnalyticsPageContent() {
                   return (
                     <div key={a.id ?? `a-${i}`} className="alert alert-warn">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="mono text-xs text-[#92400e]">{month ? getMonthLabel(month) : "—"}</p>
+                        <p className="mono text-xs text-[#92400e]">
+                          {month ? getMonthLabel(month) : "—"}
+                        </p>
                         {deviationPct != null && (
-                          <span className="mono text-xs font-semibold text-[#b45309]">+{Math.round(deviationPct)}% от среднего</span>
+                          <span className="mono text-xs font-semibold text-[#b45309]">
+                            +{Math.round(deviationPct)}% от среднего
+                          </span>
                         )}
                       </div>
                       {a.expense != null && (
                         <p className="mt-1 text-sm text-[#78350f]">
-                          Расход: <span className="font-semibold">{formatMoney(a.expense)}</span>
+                          Расход:{" "}
+                          <span className="font-semibold">
+                            {formatMoney(a.expense)}
+                          </span>
                           {a.avg_expense != null && (
                             <> · Среднее: {formatMoney(a.avg_expense)}</>
                           )}
                         </p>
                       )}
-                      {note && <p className="mt-1 text-sm text-[#78350f]">{note}</p>}
+                      {note && (
+                        <p className="mt-1 text-sm text-[#78350f]">{note}</p>
+                      )}
                     </div>
                   );
                 })}
@@ -722,10 +1088,16 @@ export function AnalyticsPageContent() {
             </article>
           ) : anomaliesStatus === "stable" ? (
             <article className="card p-5">
-              <h2 className="text-base font-semibold text-[var(--ink-strong)]">Аномалии расходов</h2>
+              <h2 className="text-base font-semibold text-[var(--ink-strong)]">
+                Аномалии расходов
+              </h2>
               <div className="mt-3 flex items-center gap-2">
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Стабильно</span>
-                <p className="text-sm text-[var(--ink-muted)]">Аномальных месяцев не обнаружено.</p>
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                  Стабильно
+                </span>
+                <p className="text-sm text-[var(--ink-muted)]">
+                  Аномальных месяцев не обнаружено.
+                </p>
               </div>
             </article>
           ) : null}

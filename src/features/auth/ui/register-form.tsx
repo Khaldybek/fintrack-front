@@ -65,6 +65,7 @@ export function RegisterForm() {
           <input
             placeholder="Ваше имя"
             type="text"
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -74,6 +75,7 @@ export function RegisterForm() {
           <input
             placeholder="name@email.com"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -84,6 +86,7 @@ export function RegisterForm() {
           <input
             placeholder="Минимум 8 символов"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

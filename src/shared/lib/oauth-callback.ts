@@ -15,7 +15,7 @@ function paramsFromLocation(loc: Location): URLSearchParams {
   const fromSearch = search ? new URLSearchParams(search) : new URLSearchParams();
 
   const hasToken = (p: URLSearchParams) =>
-    Boolean(p.get("access_token") || p.get("token"));
+    Boolean(p.get("access_token") || p.get("token") || p.get("id_token"));
   const hasOAuthErr = (p: URLSearchParams) => Boolean(p.get("error"));
 
   if (hasOAuthErr(fromHash) || hasToken(fromHash)) return fromHash;

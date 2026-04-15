@@ -3,6 +3,7 @@ import "@/app/styles/globals.css";
 import { I18nProvider } from "@/shared/i18n";
 import { AuthProvider } from "./providers/auth-provider";
 import { DocumentLang } from "./providers/document-lang";
+import { OAuthHashBridge } from "./providers/oauth-hash-bridge";
 
 export const metadata: Metadata = {
   title: "FinTrack",
@@ -19,7 +20,10 @@ export default function RootLayout({
       <body className="antialiased">
         <I18nProvider>
           <DocumentLang />
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <OAuthHashBridge />
+            {children}
+          </AuthProvider>
         </I18nProvider>
       </body>
     </html>
