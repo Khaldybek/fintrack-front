@@ -1,7 +1,9 @@
 "use client";
 
 import { Package } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useAccountsNav } from "@/app/(main)/accounts-nav-context";
 import type {
   AnalyticsAnomalyItem,
   AnalyticsCategoryItem,
@@ -28,6 +30,7 @@ import {
   getDashboardSummary,
   getMonthlyReportSummary,
 } from "@/shared/api";
+import { ROUTES } from "@/shared/config";
 import {
   downloadOrShareBlob,
   formatMoney,
@@ -91,6 +94,13 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export function AnalyticsPageContent() {
+  const router = useRouter();
+  const { hasAccounts } = useAccountsNav();
+
+  useEffect(() => {
+    if (hasAccounts === false) router.replace(ROUTES.home);
+  }, [hasAccounts, router]);
+
   const now = new Date();
   const currentYear = now.getFullYear();
 
@@ -184,11 +194,19 @@ export function AnalyticsPageContent() {
           indexRes,
           reportSummaryRes,
         ]) => {
-          setCategories(catRes.items ?? []);
-          setTotalExpenseMinor(catRes.total_expense_minor ?? 0);
-          setTotalExpenseStr(formatMoney(catRes.total_expense));
-          setMonthly(monthlyRes);
-          setTrends(trendsRes.items ?? []);
+          setCategories(Array.isArray(catRes?.items) ? catRes.items : []);
+          setTotalExpenseMinor(
+            typeof catRes?.total_expense_minor === "number"
+              ? catRes.total_expense_minor
+              : 0,
+          );
+          setTotalExpenseStr(formatMoney(catRes?.total_expense ?? null));
+          setMonthly(
+            monthlyRes && typeof monthlyRes === "object"
+              ? monthlyRes
+              : { year: selectedYear, months: [] },
+          );
+          setTrends(Array.isArray(trendsRes?.items) ? trendsRes.items : []);
           setHeatmapDays(Array.isArray(heatmapRes.days) ? heatmapRes.days : []);
           setHeatmapExplanation(heatmapRes.explanation ?? "");
           setAnomalies(
@@ -273,7 +291,7 @@ export function AnalyticsPageContent() {
 
   const trendLast4 = trends.slice(-4);
   const maxTrendBar = Math.max(
-    ...trendLast4.map((t) => Math.abs(t.net_minor)),
+    ...trendLast4.map((t) => Math.abs(t.net_minor ?? 0)),
     1,
   );
 
@@ -292,9 +310,25 @@ export function AnalyticsPageContent() {
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
   const maxSavingsRate = Math.max(
-    ...savingsRate.map((s) => Math.abs(s.saved_minor)),
+    ...savingsRate.map((s) => Math.abs(s.saved_minor ?? 0)),
     1,
   );
+
+  if (hasAccounts === false) {
+    return (
+      <AppShell
+        active="analytics"
+        title="Аналитика"
+        subtitle="Структура расходов, динамика, аномалии и месячный отчёт."
+      >
+        <section className="grid grid-cols-1 gap-5">
+          <p className="metric-label text-[var(--ink-muted)]">
+            Перенаправление…
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
 
   if (loading) {
     return (
@@ -433,7 +467,7 @@ export function AnalyticsPageContent() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium text-[var(--ink-strong)]">
                           <span className="mr-1.5 text-xs text-[var(--ink-muted)]">
-                            #{item.rank}
+                            #{item.rank ?? "—"}
                           </span>
                           {item.name}
                         </span>
@@ -445,11 +479,11 @@ export function AnalyticsPageContent() {
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
                           <div
                             className="h-full rounded-full bg-[var(--accent)]"
-                            style={{ width: `${item.share_pct}%` }}
+                            style={{ width: `${item.share_pct ?? 0}%` }}
                           />
                         </div>
                         <span className="mono shrink-0 text-xs text-[var(--ink-muted)]">
-                          {item.share_pct}%
+                          {item.share_pct ?? 0}%
                         </span>
                         <span className="shrink-0 text-xs text-[var(--ink-muted)]">
                           {item.tx_count} опер.
@@ -794,7 +828,7 @@ export function AnalyticsPageContent() {
                     <div
                       className="w-full rounded-t-sm"
                       style={{
-                        height: `${Math.max(4, Math.round((Math.abs(s.saved_minor) / maxSavingsRate) * 48))}px`,
+                        height: `${Math.max(4, Math.round((Math.abs(s.saved_minor ?? 0) / maxSavingsRate) * 48))}px`,
                         backgroundColor:
                           s.status === "good"
                             ? "#166534"
@@ -813,7 +847,7 @@ export function AnalyticsPageContent() {
           )}
 
           {/* Сравнение периодов */}
-          {compare && (
+          {compare?.diff && compare.period_a && compare.period_b && (
             <article className="card p-5 md:p-6">
               <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
                 Сравнение: прошлый vs текущий месяц
@@ -869,9 +903,9 @@ export function AnalyticsPageContent() {
                     Доход изменился
                   </p>
                   <p
-                    className={`mono mt-1 text-lg font-bold ${compare.diff.income_change_pct >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
+                    className={`mono mt-1 text-lg font-bold ${(compare.diff.income_change_pct ?? 0) >= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
                   >
-                    {fmtPct(compare.diff.income_change_pct)}
+                    {fmtPct(compare.diff.income_change_pct ?? 0)}
                   </p>
                   <p className="mono text-xs text-[var(--ink-muted)]">
                     {formatMoney(compare.diff.income_change)}
@@ -882,9 +916,9 @@ export function AnalyticsPageContent() {
                     Расход изменился
                   </p>
                   <p
-                    className={`mono mt-1 text-lg font-bold ${compare.diff.expense_change_pct <= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
+                    className={`mono mt-1 text-lg font-bold ${(compare.diff.expense_change_pct ?? 0) <= 0 ? "text-[#166534]" : "text-[#9f1239]"}`}
                   >
-                    {fmtPct(compare.diff.expense_change_pct)}
+                    {fmtPct(compare.diff.expense_change_pct ?? 0)}
                   </p>
                   <p className="mono text-xs text-[var(--ink-muted)]">
                     {formatMoney(compare.diff.expense_change)}
@@ -934,7 +968,7 @@ export function AnalyticsPageContent() {
                 <div className="metric-row">
                   <span>Фин. индекс</span>
                   <span className="mono">
-                    {index != null ? `${index.score} / 100` : "—"}
+                    {index != null ? `${index.score ?? "—"} / 100` : "—"}
                   </span>
                 </div>
                 <div className="metric-row">

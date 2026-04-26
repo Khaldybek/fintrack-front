@@ -1,16 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { useAccountsNav } from "@/app/(main)/accounts-nav-context";
 import { useAuth } from "@/app/providers/auth-provider";
+import {
+  AccountCard,
+  AddAccountModal,
+  EditAccountModal,
+} from "@/features/add-account";
+import type { Account, PlanResponse, Profile } from "@/shared/api";
+import { deleteAccount, getAccounts, getMe, getMePlan } from "@/shared/api";
+import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
 import { ActionInfoModal } from "@/shared/ui";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
-import { AccountCard, AddAccountModal, EditAccountModal } from "@/features/add-account";
-import { getMe, getMePlan, getAccounts, deleteAccount } from "@/shared/api";
-import type { Profile, PlanResponse, Account } from "@/shared/api";
-import { ROUTES } from "@/shared/config";
-import { useI18n } from "@/shared/i18n";
 
 const localeLabel: Record<string, string> = {
   ru: "Русский",
@@ -21,6 +26,7 @@ const localeLabel: Record<string, string> = {
 export function ProfilePageContent() {
   const { t, locale, setLocale } = useI18n();
   const { logout } = useAuth();
+  const { refresh: refreshAccountsNav } = useAccountsNav();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -44,6 +50,7 @@ export function ProfilePageContent() {
       await deleteAccount(id);
       setAccounts((prev) => prev.filter((a) => a.id !== id));
       setDeleteConfirmId(null);
+      refreshAccountsNav();
     } catch {
       // ошибка уже показать можно через setError
     } finally {
@@ -105,9 +112,18 @@ export function ProfilePageContent() {
           .replace("{accounts}", String(planLimits.accounts))
           .replace("{budgets}", String(planLimits.budgets))
           .replace("{goals}", String(planLimits.goals))
-          .replace("{index}", plan.features.dashboardIndex ? t("common.yes") : t("common.no"))
-          .replace("{forecast}", plan.features.forecast ? t("common.yes") : t("common.no"))
-          .replace("{family}", plan.features.familyMode ? t("common.yes") : t("common.no"))
+          .replace(
+            "{index}",
+            plan.features.dashboardIndex ? t("common.yes") : t("common.no"),
+          )
+          .replace(
+            "{forecast}",
+            plan.features.forecast ? t("common.yes") : t("common.no"),
+          )
+          .replace(
+            "{family}",
+            plan.features.familyMode ? t("common.yes") : t("common.no"),
+          )
       : null;
 
   return (
@@ -139,7 +155,9 @@ export function ProfilePageContent() {
           <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
             {t("profile.interface.title")}
           </h2>
-          <p className="mt-1 text-sm text-[var(--ink-soft)]">{t("profile.interface.hint")}</p>
+          <p className="mt-1 text-sm text-[var(--ink-soft)]">
+            {t("profile.interface.hint")}
+          </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
@@ -188,7 +206,9 @@ export function ProfilePageContent() {
             <div className="metric-row">
               <span>{t("profile.language")}</span>
               <span className="mono">
-                {profile?.locale ? localeLabel[profile.locale] ?? profile.locale : "—"}
+                {profile?.locale
+                  ? (localeLabel[profile.locale] ?? profile.locale)
+                  : "—"}
               </span>
             </div>
           </div>
@@ -282,7 +302,9 @@ export function ProfilePageContent() {
                 {t("profile.planSubtitle")}
               </p>
               {planLimitsText ? (
-                <p className="mt-2 text-xs text-[var(--ink-muted)]">{planLimitsText}</p>
+                <p className="mt-2 text-xs text-[var(--ink-muted)]">
+                  {planLimitsText}
+                </p>
               ) : null}
             </div>
             <ActionInfoModal
@@ -308,7 +330,10 @@ export function ProfilePageContent() {
       {showAddAccount && (
         <AddAccountModal
           onClose={() => setShowAddAccount(false)}
-          onSuccess={() => loadAccounts()}
+          onSuccess={() => {
+            loadAccounts();
+            refreshAccountsNav();
+          }}
         />
       )}
 
@@ -317,7 +342,9 @@ export function ProfilePageContent() {
           account={editingAccount}
           onClose={() => setEditingAccount(null)}
           onSuccess={(updated) => {
-            setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+            setAccounts((prev) =>
+              prev.map((a) => (a.id === updated.id ? updated : a)),
+            );
             setEditingAccount(null);
           }}
         />
@@ -352,10 +379,14 @@ export function ProfilePageContent() {
               <button
                 type="button"
                 className="flex-1 rounded-xl bg-[#9f1239] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#7f1d1d] disabled:opacity-60"
-                onClick={() => deleteConfirmId && handleDeleteAccount(deleteConfirmId)}
+                onClick={() =>
+                  deleteConfirmId && handleDeleteAccount(deleteConfirmId)
+                }
                 disabled={deletingId === deleteConfirmId}
               >
-                {deletingId === deleteConfirmId ? t("profile.deleting") : t("common.delete")}
+                {deletingId === deleteConfirmId
+                  ? t("profile.deleting")
+                  : t("common.delete")}
               </button>
             </div>
           </section>

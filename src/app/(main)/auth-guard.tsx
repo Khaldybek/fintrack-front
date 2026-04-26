@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { ROUTES } from "@/shared/config";
+import { AccountsNavProvider } from "./accounts-nav-context";
 
 type AuthGuardProps = { children: React.ReactNode };
 
@@ -39,5 +40,5 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return null;
   }
 
-  return <>{children}</>;
+  return <AccountsNavProvider>{children}</AccountsNavProvider>;
 }

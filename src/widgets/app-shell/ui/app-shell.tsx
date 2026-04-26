@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useAccountsNav } from "@/app/(main)/accounts-nav-context";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
 
@@ -71,10 +72,14 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const { t } = useI18n();
-  const navItems = useMemo(
-    () => navKeys.map((n) => ({ ...n, label: t(n.tKey) })),
-    [t],
-  );
+  const { hasAccounts } = useAccountsNav();
+  const navItems = useMemo(() => {
+    const keys =
+      hasAccounts === false
+        ? navKeys.filter((n) => n.key !== "analytics")
+        : navKeys;
+    return keys.map((n) => ({ ...n, label: t(n.tKey) }));
+  }, [t, hasAccounts]);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const mobilePrimary = navItems.filter((item) =>
     ["dashboard", "transactions", "analytics", "profile"].includes(item.key),
