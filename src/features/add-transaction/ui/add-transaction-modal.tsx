@@ -1,16 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
-import { createPortal } from "react-dom";
 import {
-  getCategories,
-  getAccounts,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import type { Account, Category, SuggestCategoryResponse } from "@/shared/api";
+import {
   createTransaction,
-  voiceParseTransaction,
-  suggestCategoryTransaction,
+  getAccounts,
+  getCategories,
   receiptOcrTransaction,
+  suggestCategoryTransaction,
+  voiceParseTransaction,
 } from "@/shared/api";
-import type { Category, Account, SuggestCategoryResponse } from "@/shared/api";
 
 const RECEIPT_ACCEPT = "image/jpeg,image/png,image/webp";
 const RECEIPT_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -29,22 +35,51 @@ export type AddTransactionModalHandle = {
 
 const keypad = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
 
-/** Только цифры + пробелы как разделитель тысяч при отображении */
+/**
+ * Отображение суммы: целая часть с пробелами по тысячам; дробная (до 2 знаков) сохраняется.
+ * Раньше все нецифры выкидывались — точка терялась, «12.50» превращалось в «1 250».
+ */
 function formatAmountDisplay(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 0) return "0";
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const v = value.replace(/,/g, ".").trim();
+  if (!v || v === ".") return "0";
+  const dot = v.indexOf(".");
+  const intSlice = dot === -1 ? v : v.slice(0, dot);
+  const fracSlice = dot === -1 ? "" : v.slice(dot + 1);
+  const intDigits = intSlice.replace(/\D/g, "");
+  const fracDigits = fracSlice.replace(/\D/g, "").slice(0, 2);
+  const intTrimmed =
+    intDigits.replace(/^0+(?=\d)/, "") ||
+    (fracDigits.length > 0 ? "0" : intDigits ? "0" : "");
+  const intCore =
+    intTrimmed === "" && intDigits.length === 0 ? "0" : intTrimmed || "0";
+  const grouped = intCore.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  if (dot !== -1) {
+    if (fracDigits.length > 0) return `${grouped}.${fracDigits}`;
+    if (v.endsWith(".")) return `${grouped}.`;
+  }
+  return grouped;
+}
+
+/** AMOUNTS_API.md: AI отдаёт целые ₸ в amountMinor; убираем ведущие нули и дробь для поля шага 1. */
+function amountFromAiToInputRaw(amount: unknown): string {
+  const n =
+    typeof amount === "number" && Number.isFinite(amount)
+      ? amount
+      : typeof amount === "string"
+        ? Number(String(amount).replace(/\s/g, "").replace(",", "."))
+        : NaN;
+  if (!Number.isFinite(n)) return "";
+  const whole = Math.trunc(Math.abs(n));
+  if (whole === 0) return "";
+  const trimmed = String(whole).replace(/^0+/, "") || "0";
+  return trimmed === "0" ? "" : trimmed;
 }
 
 const AddTransactionModalInner = forwardRef<
   AddTransactionModalHandle,
   AddTransactionModalProps
 >(function AddTransactionModal(
-  {
-    triggerLabel = "+ Транзакция",
-    triggerClassName = "fab-add",
-    onSuccess,
-  },
+  { triggerLabel = "+ Транзакция", triggerClassName = "fab-add", onSuccess },
   ref,
 ) {
   const [isOpen, setIsOpen] = useState(false);
@@ -54,7 +89,9 @@ const AddTransactionModalInner = forwardRef<
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [comment, setComment] = useState("");
-  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [transactionDate, setTransactionDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,7 +105,8 @@ const AddTransactionModalInner = forwardRef<
 
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
-  const [suggestResult, setSuggestResult] = useState<SuggestCategoryResponse | null>(null);
+  const [suggestResult, setSuggestResult] =
+    useState<SuggestCategoryResponse | null>(null);
 
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -82,8 +120,8 @@ const AddTransactionModalInner = forwardRef<
       .then(([cats, accs]) => {
         setCategories(cats ?? []);
         setAccounts(accs ?? []);
-        setCategoryId((prev) => (prev ?? cats?.[0]?.id ?? null));
-        setAccountId((prev) => (prev ?? accs?.[0]?.id ?? null));
+        setCategoryId((prev) => prev ?? cats?.[0]?.id ?? null);
+        setAccountId((prev) => prev ?? accs?.[0]?.id ?? null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -138,8 +176,7 @@ const AddTransactionModalInner = forwardRef<
     setLowConfidence(false);
     try {
       const res = await voiceParseTransaction({ text });
-      const absMinor = Math.abs(res.amountMinor);
-      setAmountRaw(String(Math.round(absMinor)));
+      setAmountRaw(amountFromAiToInputRaw(res.amountMinor));
       if (res.categoryId && categories.some((c) => c.id === res.categoryId)) {
         setCategoryId(res.categoryId);
       }
@@ -167,19 +204,27 @@ const AddTransactionModalInner = forwardRef<
       const category = categories.find((c) => c.id === categoryId);
       const isIncome = category?.type === "income";
       const amountMinor = hasAmount
-        ? (isIncome ? Math.round(amountNum) : -Math.round(amountNum))
+        ? isIncome
+          ? Math.round(amountNum)
+          : -Math.round(amountNum)
         : undefined;
       const res = await suggestCategoryTransaction({ memo, amountMinor });
       setSuggestResult(res);
     } catch (err) {
-      setSuggestError((err as Error)?.message ?? "Не удалось подсказать категорию");
+      setSuggestError(
+        (err as Error)?.message ?? "Не удалось подсказать категорию",
+      );
     } finally {
       setSuggestLoading(false);
     }
   };
 
   const applySuggestCategory = () => {
-    if (!suggestResult?.categoryId || !categories.some((c) => c.id === suggestResult.categoryId)) return;
+    if (
+      !suggestResult?.categoryId ||
+      !categories.some((c) => c.id === suggestResult.categoryId)
+    )
+      return;
     setCategoryId(suggestResult.categoryId);
     if (suggestResult.merchantCanonical) {
       setComment(suggestResult.merchantCanonical);
@@ -202,9 +247,9 @@ const AddTransactionModalInner = forwardRef<
     setReceiptLoading(true);
     try {
       const res = await receiptOcrTransaction(file);
-      const absMinor = Math.abs(res.amountMinor);
-      if (absMinor > 0) {
-        setAmountRaw(String(Math.round(absMinor)));
+      const raw = amountFromAiToInputRaw(res.amountMinor);
+      if (raw.length > 0) {
+        setAmountRaw(raw);
       }
       if (res.date) setTransactionDate(res.date);
       if (res.memo) setComment(res.memo);
@@ -227,18 +272,36 @@ const AddTransactionModalInner = forwardRef<
 
   const onKeypad = (key: string) => {
     if (key === "⌫") {
-      setAmountRaw((prev) => prev.replace(/\D/g, "").slice(0, -1));
+      setAmountRaw((prev) => {
+        const p = prev.replace(/,/g, ".").replace(/\s/g, "");
+        if (!p) return "";
+        return p.slice(0, -1);
+      });
       return;
     }
     if (key === ".") {
-      setAmountRaw((prev) => (prev.includes(".") ? prev : `${prev}.`));
+      setAmountRaw((prev) => {
+        const p = prev.replace(/,/g, ".").replace(/\s/g, "");
+        if (p.includes(".")) return prev;
+        return p === "" ? "0." : `${p}.`;
+      });
       return;
     }
-    setAmountRaw((prev) => (prev === "0" && key !== "." ? key : `${prev}${key}`));
+    setAmountRaw((prev) => {
+      const p = prev.replace(/,/g, ".").replace(/\s/g, "");
+      if (p.includes(".")) {
+        const [, frac = ""] = p.split(".");
+        if (frac.replace(/\D/g, "").length >= 2) return prev;
+      }
+      if (p === "0") return key;
+      return `${p}${key}`;
+    });
   };
 
   const amountDisplay = formatAmountDisplay(amountRaw || "0");
-  const amountNum = parseFloat((amountRaw || "0").replace(/\s/g, "").replace(",", "."));
+  const amountNum = parseFloat(
+    (amountRaw || "0").replace(/\s/g, "").replace(",", "."),
+  );
   const hasAmount = Number.isFinite(amountNum) && amountNum > 0;
   const hasAccount = accounts.length > 0 && accountId != null;
   const canSubmit = hasAmount && categoryId != null && hasAccount;
@@ -258,7 +321,9 @@ const AddTransactionModalInner = forwardRef<
     const category = categories.find((c) => c.id === categoryId);
     // Доход — положительная сумма, расход — отрицательная. API принимает сумму в целых единицах (₸), не в тиынах.
     const isIncome = category?.type === "income";
-    const amountMinor = isIncome ? Math.round(amountNum) : -Math.round(amountNum);
+    const amountMinor = isIncome
+      ? Math.round(amountNum)
+      : -Math.round(amountNum);
     setSubmitting(true);
     setFormError(null);
     try {
@@ -273,7 +338,9 @@ const AddTransactionModalInner = forwardRef<
       onSuccess?.();
       closeModal();
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Не удалось сохранить транзакцию");
+      setFormError(
+        (err as Error)?.message ?? "Не удалось сохранить транзакцию",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -296,11 +363,7 @@ const AddTransactionModalInner = forwardRef<
               3 шага: сумма → категория → счёт
             </h3>
           </div>
-          <button
-            className="tx-inline-btn"
-            onClick={closeModal}
-            type="button"
-          >
+          <button className="tx-inline-btn" onClick={closeModal} type="button">
             Закрыть
           </button>
         </div>
@@ -341,7 +404,8 @@ const AddTransactionModalInner = forwardRef<
             Чек по фото (AI)
           </p>
           <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-            Загрузите фото чека (JPEG, PNG или WebP, до 10 МБ) — подставятся сумма, дата, магазин и категория.
+            Загрузите фото чека (JPEG, PNG или WebP, до 10 МБ) — подставятся
+            сумма, дата, магазин и категория.
           </p>
           <input
             ref={receiptInputRef}
@@ -391,7 +455,13 @@ const AddTransactionModalInner = forwardRef<
           <div className="space-y-3">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
               <p className="mono text-xs text-[var(--ink-muted)]">
-                Сумма {categoryId ? (categories.find((c) => c.id === categoryId)?.type === "income" ? "(доход)" : "(расход)") : ""}
+                Сумма{" "}
+                {categoryId
+                  ? categories.find((c) => c.id === categoryId)?.type ===
+                    "income"
+                    ? "(доход)"
+                    : "(расход)"
+                  : ""}
               </p>
               <p className="mono mt-1 text-3xl font-semibold text-[var(--ink-strong)]">
                 {amountDisplay} ₸
@@ -415,7 +485,9 @@ const AddTransactionModalInner = forwardRef<
         {step === 2 && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {loading ? (
-              <p className="col-span-full text-sm text-[var(--ink-muted)]">Загрузка категорий…</p>
+              <p className="col-span-full text-sm text-[var(--ink-muted)]">
+                Загрузка категорий…
+              </p>
             ) : (
               categories.map((cat) => (
                 <button
@@ -447,14 +519,20 @@ const AddTransactionModalInner = forwardRef<
               />
             </label>
             <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-              {categories.find((c) => c.id === categoryId)?.type === "income" ? "Счёт зачисления" : "Счёт списания"}
+              {categories.find((c) => c.id === categoryId)?.type === "income"
+                ? "Счёт зачисления"
+                : "Счёт списания"}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {loading ? (
-                <p className="col-span-full text-sm text-[var(--ink-muted)]">Загрузка счетов…</p>
+                <p className="col-span-full text-sm text-[var(--ink-muted)]">
+                  Загрузка счетов…
+                </p>
               ) : accounts.length === 0 ? (
                 <p className="col-span-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  Нет добавленных счетов. Откройте <strong>Профиль</strong> (внизу экрана) → блок «Счета» → кнопка «+ Добавить счёт». После добавления счёта кнопка «Сохранить» станет активной.
+                  Нет добавленных счетов. Откройте <strong>Профиль</strong>{" "}
+                  (внизу экрана) → блок «Счета» → кнопка «+ Добавить счёт».
+                  После добавления счёта кнопка «Сохранить» станет активной.
                 </p>
               ) : (
                 accounts.map((acc) => (
@@ -489,7 +567,8 @@ const AddTransactionModalInner = forwardRef<
                 Подсказка категории по описанию (AI)
               </p>
               <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-                Введите текст операции и нажмите «Подсказать» — категория и мерчант подставятся автоматически.
+                Введите текст операции и нажмите «Подсказать» — категория и
+                мерчант подставятся автоматически.
               </p>
               <div className="mt-3 flex gap-2">
                 <button
@@ -515,21 +594,30 @@ const AddTransactionModalInner = forwardRef<
                     )}
                   </p>
                   {suggestResult.confidence < 0.7 && (
-                    <p className="mt-1 text-xs text-[#92400e]">Проверьте перед сохранением.</p>
+                    <p className="mt-1 text-xs text-[#92400e]">
+                      Проверьте перед сохранением.
+                    </p>
                   )}
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       className="action-btn h-8 px-3 text-sm"
                       onClick={applySuggestCategory}
-                      disabled={!suggestResult.categoryId || !categories.some((c) => c.id === suggestResult!.categoryId)}
+                      disabled={
+                        !suggestResult.categoryId ||
+                        !categories.some(
+                          (c) => c.id === suggestResult!.categoryId,
+                        )
+                      }
                     >
                       Подставить
                     </button>
                     <button
                       type="button"
                       className="tx-inline-btn h-8 px-3 text-sm"
-                      onClick={() => { setSuggestResult(null); }}
+                      onClick={() => {
+                        setSuggestResult(null);
+                      }}
                     >
                       Отмена
                     </button>
@@ -540,9 +628,7 @@ const AddTransactionModalInner = forwardRef<
           </div>
         )}
 
-        {formError && (
-          <div className="mt-3 alert alert-warn">{formError}</div>
-        )}
+        {formError && <div className="mt-3 alert alert-warn">{formError}</div>}
 
         {submitBlockReason && (
           <p className="mt-3 rounded-lg bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-muted)]">
@@ -553,7 +639,9 @@ const AddTransactionModalInner = forwardRef<
           <button
             className="filter-chip"
             disabled={step === 1}
-            onClick={() => setStep((prev) => (prev > 1 ? (prev - 1) as 1 | 2 | 3 : prev))}
+            onClick={() =>
+              setStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : prev))
+            }
             type="button"
           >
             Назад
@@ -561,7 +649,9 @@ const AddTransactionModalInner = forwardRef<
           {step < 3 ? (
             <button
               className="action-btn"
-              onClick={() => setStep((prev) => (prev < 3 ? (prev + 1) as 1 | 2 | 3 : prev))}
+              onClick={() =>
+                setStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev))
+              }
               type="button"
             >
               Далее
@@ -572,7 +662,11 @@ const AddTransactionModalInner = forwardRef<
               onClick={handleSubmit}
               type="button"
               disabled={!canSubmit || submitting}
-              title={typeof submitBlockReason === "string" ? submitBlockReason : undefined}
+              title={
+                typeof submitBlockReason === "string"
+                  ? submitBlockReason
+                  : undefined
+              }
             >
               {submitting ? "Сохранение…" : "Сохранить"}
             </button>
