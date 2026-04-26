@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AuthShell } from "@/shared/ui";
-import { ROUTES } from "@/shared/config";
 import { useAuth } from "@/app/providers/auth-provider";
-import { useI18n } from "@/shared/i18n";
-import { getGoogleAuthUrl } from "@/shared/api";
 import type { ApiError } from "@/shared/api";
+import { getGoogleAuthUrl } from "@/shared/api";
+import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
+import { AuthShell } from "@/shared/ui";
+import { TelegramOauthHint } from "./telegram-oauth-hint";
 
 export function LoginForm() {
   const { t } = useI18n();
@@ -47,12 +48,11 @@ export function LoginForm() {
       helperText={t("auth.login.helper")}
     >
       <form className="space-y-3" onSubmit={handleSubmit}>
+        <TelegramOauthHint />
         {error && (
           <div className="rounded-xl border border-[#b91c1c] bg-[#fef2f2] px-3 py-2 text-sm text-[#991b1b]">
             {error}
-            {featureHint && (
-              <p className="mt-1 font-medium">{featureHint}</p>
-            )}
+            {featureHint && <p className="mt-1 font-medium">{featureHint}</p>}
           </div>
         )}
         <label className="auth-field">
@@ -91,11 +91,7 @@ export function LoginForm() {
           </Link>
         </div>
 
-        <button
-          className="auth-primary"
-          type="submit"
-          disabled={loading}
-        >
+        <button className="auth-primary" type="submit" disabled={loading}>
           {loading ? t("auth.login.submitting") : t("auth.login.submit")}
         </button>
       </form>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { ROUTES } from "@/shared/config";
 import { parseOAuthRedirectLocation, parseOAuthUser } from "@/shared/lib";
@@ -33,10 +33,13 @@ export default function AuthCallbackPage() {
         if (parsed.reason === "oauth_error") {
           doneRef.current = true;
           const desc = parsed.oauthErrorDescription
-            ? decodeURIComponent(parsed.oauthErrorDescription.replace(/\+/g, " "))
+            ? decodeURIComponent(
+                parsed.oauthErrorDescription.replace(/\+/g, " "),
+              )
             : "";
           setErrorDetail(
-            [parsed.oauthError, desc].filter(Boolean).join(": ") || "OAuth отклонён",
+            [parsed.oauthError, desc].filter(Boolean).join(": ") ||
+              "OAuth отклонён",
           );
           setStatus("error");
           return;
@@ -49,7 +52,7 @@ export default function AuthCallbackPage() {
         doneRef.current = true;
         setSession(parsed.accessToken, user);
         setStatus("ok");
-        router.replace(ROUTES.home);
+        window.location.replace(ROUTES.home);
       } catch {
         doneRef.current = true;
         setErrorDetail("Некорректные данные профиля в ответе OAuth.");
@@ -89,7 +92,7 @@ export default function AuthCallbackPage() {
       window.clearTimeout(t4);
       window.removeEventListener("pageshow", onPageShow);
     };
-  }, [router, setSession]);
+  }, [setSession]);
 
   if (status === "error") {
     return (
@@ -98,7 +101,9 @@ export default function AuthCallbackPage() {
           Не удалось войти через Google. Попробуйте снова.
         </p>
         {errorDetail ? (
-          <p className="max-w-md text-center text-xs text-[var(--ink-muted)]">{errorDetail}</p>
+          <p className="max-w-md text-center text-xs text-[var(--ink-muted)]">
+            {errorDetail}
+          </p>
         ) : null}
         <button
           type="button"

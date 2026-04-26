@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AuthShell } from "@/shared/ui";
-import { ROUTES } from "@/shared/config";
 import { useAuth } from "@/app/providers/auth-provider";
-import { getAccessTokenFromResponse, register as apiRegister, getGoogleAuthUrl } from "@/shared/api";
 import type { ApiError } from "@/shared/api";
+import {
+  register as apiRegister,
+  getAccessTokenFromResponse,
+  getGoogleAuthUrl,
+} from "@/shared/api";
+import { ROUTES } from "@/shared/config";
+import { AuthShell } from "@/shared/ui";
+import { TelegramOauthHint } from "./telegram-oauth-hint";
 
 export function RegisterForm() {
   const { setSession } = useAuth();
@@ -52,12 +57,11 @@ export function RegisterForm() {
       helperText="Первый шаг занимает меньше минуты. После регистрации вы сможете добавить счета и получить стартовый индекс."
     >
       <form action="#" className="space-y-3" onSubmit={handleSubmit}>
+        <TelegramOauthHint />
         {error && (
           <div className="rounded-xl border border-[#b91c1c] bg-[#fef2f2] px-3 py-2 text-sm text-[#991b1b]">
             {error}
-            {featureHint && (
-              <p className="mt-1 font-medium">{featureHint}</p>
-            )}
+            {featureHint && <p className="mt-1 font-medium">{featureHint}</p>}
           </div>
         )}
         <label className="auth-field">
@@ -98,11 +102,7 @@ export function RegisterForm() {
           Принимаю условия и политику конфиденциальности
         </label>
 
-        <button
-          className="auth-primary"
-          type="submit"
-          disabled={loading}
-        >
+        <button className="auth-primary" type="submit" disabled={loading}>
           {loading ? "Создание…" : "Создать аккаунт"}
         </button>
       </form>

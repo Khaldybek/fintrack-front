@@ -55,6 +55,10 @@ export const kk = {
     no: "жоқ",
   },
   auth: {
+    oauth: {
+      telegramInlineBrowserHint:
+        "Сіз сайтты Telegram ішкі браузерінде аштыңыз. Google арқылы кіру және сессия сонда жиі сақталмайды. «⋯» немесе «Шолғышта ашу» арқылы Safari немесе Chrome-та қайта кіріңіз.",
+    },
     login: {
       title: "Кіру",
       subtitle: "Қаржыңызбен жұмысты жалғастырыңыз",
@@ -76,8 +80,7 @@ export const kk = {
   profile: {
     loadError: "Профильді жүктеу мүмкін болмады",
     title: "Профиль",
-    subtitle:
-      "Қауіпсіздік, валюта және жазылым баптаулары бір жерде.",
+    subtitle: "Қауіпсіздік, валюта және жазылым баптаулары бір жерде.",
     logout: "Шығу",
     loggingOut: "Шығу…",
     account: "Аккаунт",
@@ -94,8 +97,7 @@ export const kk = {
     security: "Қауіпсіздік",
     securityHint: "Құпия сөзді қалпына келтіру, сессиялар және кіру тарихы.",
     resetPassword: "Құпия сөзді қалпына келтіру",
-    resetPasswordDesc:
-      "Құпия сөзді ұмыттыңыз ба? Email-ге сілтеме жібереміз.",
+    resetPasswordDesc: "Құпия сөзді ұмыттыңыз ба? Email-ге сілтеме жібереміз.",
     sessions: "Сессиялар мен құрылғылар",
     notifications: "Хабарламалар",
     planTitle: "FinTrack",
