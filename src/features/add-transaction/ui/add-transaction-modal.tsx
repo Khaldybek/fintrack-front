@@ -60,8 +60,28 @@ function formatAmountDisplay(value: string): string {
   return grouped;
 }
 
-/** AMOUNTS_API.md: AI отдаёт целые ₸ в amountMinor; убираем ведущие нули и дробь для поля шага 1. */
-function amountFromAiToInputRaw(amount: unknown): string {
+/**
+ * Бэкенд иногда отдаёт сумму в тиынах (×100), а в фразе пользователь указал целые ₸
+ * (например «еда 545» → amountMinor 54500 → на экране «54 500»). Если в подсказке есть
+ * число p и whole === p*100, считаем p суммой в ₸ (см. docs/AMOUNTS_API.md).
+ */
+function applyHintDeTiyn(whole: number, hint?: string | null): number {
+  if (!hint || whole < 100 || whole % 100 !== 0) return whole;
+  const tokens = hint.match(/\d+/g);
+  if (!tokens?.length) return whole;
+  for (const t of tokens) {
+    const p = Number(t);
+    if (!Number.isFinite(p) || p <= 0) continue;
+    if (whole === p * 100) return p;
+  }
+  return whole;
+}
+
+/** Целые ₸ для поля шага 1; hint — текст фразы (voice) или memo (чек), чтобы снять ×100. */
+function amountFromAiToInputRaw(
+  amount: unknown,
+  phraseHint?: string | null,
+): string {
   const n =
     typeof amount === "number" && Number.isFinite(amount)
       ? amount
@@ -69,8 +89,9 @@ function amountFromAiToInputRaw(amount: unknown): string {
         ? Number(String(amount).replace(/\s/g, "").replace(",", "."))
         : NaN;
   if (!Number.isFinite(n)) return "";
-  const whole = Math.trunc(Math.abs(n));
+  let whole = Math.trunc(Math.abs(n));
   if (whole === 0) return "";
+  whole = applyHintDeTiyn(whole, phraseHint);
   const trimmed = String(whole).replace(/^0+/, "") || "0";
   return trimmed === "0" ? "" : trimmed;
 }
@@ -176,7 +197,7 @@ const AddTransactionModalInner = forwardRef<
     setLowConfidence(false);
     try {
       const res = await voiceParseTransaction({ text });
-      setAmountRaw(amountFromAiToInputRaw(res.amountMinor));
+      setAmountRaw(amountFromAiToInputRaw(res.amountMinor, text));
       if (res.categoryId && categories.some((c) => c.id === res.categoryId)) {
         setCategoryId(res.categoryId);
       }
@@ -247,7 +268,7 @@ const AddTransactionModalInner = forwardRef<
     setReceiptLoading(true);
     try {
       const res = await receiptOcrTransaction(file);
-      const raw = amountFromAiToInputRaw(res.amountMinor);
+      const raw = amountFromAiToInputRaw(res.amountMinor, res.memo);
       if (raw.length > 0) {
         setAmountRaw(raw);
       }
