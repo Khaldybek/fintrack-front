@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useCanShareAccountWithHousehold } from "@/features/add-account/lib/use-can-share-account";
 import { updateAccount } from "@/shared/api";
 import type { Account } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
 
 export type EditAccountModalProps = {
   account: Account;
