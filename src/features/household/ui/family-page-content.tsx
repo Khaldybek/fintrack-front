@@ -5,7 +5,6 @@ import { useAuth } from "@/app/providers/auth-provider";
 import { usePlan } from "@/app/providers/plan-provider";
 import { UpgradeModal } from "@/features/upgrade/ui/upgrade-modal";
 import { FAMILY_TABS, type FamilyTabId } from "@/features/household/lib/constants";
-import { getHouseholdMyRole } from "@/features/household/lib/format";
 import { FamilyAccountsTab } from "@/features/household/ui/family-accounts-tab";
 import { FamilyBudgetsTab } from "@/features/household/ui/family-budgets-tab";
 import { FamilyMembersTab } from "@/features/household/ui/family-members-tab";
@@ -27,6 +26,7 @@ import type {
   HouseholdMemberRole,
   HouseholdOverviewResponse,
 } from "@/shared/api";
+import { hasEffectiveFamilyMode } from "@/shared/lib/plan";
 import { useBodyScrollLock } from "@/shared/lib";
 import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
 import { isHouseholdMembersLimitError } from "@/shared/lib/household-errors";
@@ -38,7 +38,7 @@ export function FamilyPageContent() {
   const { t } = useI18n();
   const { user } = useAuth();
   const { plan } = usePlan();
-  const familyModeEnabled = plan?.features?.familyMode ?? false;
+  const familyModeEnabled = hasEffectiveFamilyMode(plan);
 
   const [activeTab, setActiveTab] = useState<FamilyTabId>("overview");
   const [household, setHousehold] = useState<Household | null>(null);
@@ -216,7 +216,8 @@ export function FamilyPageContent() {
     household?.features?.canInvite ??
     (currentMember?.role === "owner" || currentMember?.role === "member");
   const canManageBudgets =
-    household?.features?.canManageBudgets ?? isOwner || currentMember?.role === "member";
+    household?.features?.canManageBudgets ??
+    (isOwner || currentMember?.role === "member");
 
   const overlayOpen = inviteOpen || !!deleteMemberId || leaveOpen;
   useBodyScrollLock(overlayOpen);

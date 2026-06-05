@@ -69,6 +69,16 @@ export interface PlanFeatures {
   familyMode: boolean;
 }
 
+export type FamilyModeSource = "subscription" | "membership" | null;
+
+/** Краткая информация о household в GET /me/plan */
+export interface PlanHouseholdSummary {
+  id: string;
+  name: string;
+  role: "owner" | "member" | "viewer";
+  isOwner: boolean;
+}
+
 export interface PlanSubscription {
   id?: string;
   planCode: BillingPlanCode;
@@ -84,7 +94,13 @@ export interface PlanSubscription {
 export interface PlanResponse {
   plan: PlanSlug;
   limits: PlanLimits;
+  /** По своей подписке — для строки «Тариф: Free/Pro/Family» */
   features: PlanFeatures;
+  /** Для UI и гейтинга (подписка или членство в семье) */
+  featuresEffective?: PlanFeatures;
+  familyModeSource?: FamilyModeSource;
+  household?: PlanHouseholdSummary | null;
+  householdOwnerPlan?: PlanSlug | string | null;
   subscription?: PlanSubscription | null;
 }
 
@@ -137,6 +153,8 @@ export interface BillingCheckoutConfirmResponse {
   status: "completed";
   planCode: BillingPlanCode;
   subscription: PlanSubscription;
+  /** Полный объект плана (как GET /me/plan) */
+  plan?: PlanResponse;
 }
 
 /** POST /v1/billing/cancel */

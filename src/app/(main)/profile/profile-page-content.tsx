@@ -20,7 +20,7 @@ import {
 } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
-import { formatLimitValue, formatPlanLabel } from "@/shared/lib/plan";
+import { formatLimitValue, formatPlanLabel, hasEffectiveFamilyMode, isHouseholdMemberOnFree } from "@/shared/lib/plan";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 
@@ -148,6 +148,8 @@ export function ProfilePageContent() {
   const subscription = plan?.subscription;
 
   const features = plan?.features;
+  const familyModeEffective = hasEffectiveFamilyMode(plan);
+  const isFamilyMember = isHouseholdMemberOnFree(plan);
   const planLimitsText = plan
     ? t("profile.planLimits")
         .replace("{accounts}", formatLimitValue(planLimits?.accounts))
@@ -163,7 +165,7 @@ export function ProfilePageContent() {
         )
         .replace(
           "{family}",
-          features?.familyMode ? t("common.yes") : t("common.no"),
+          familyModeEffective ? t("common.yes") : t("common.no"),
         )
     : null;
 
@@ -305,9 +307,28 @@ export function ProfilePageContent() {
         <article className="card p-5 md:p-6 xl:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
-                {t("profile.planTitle")} {planLabel}
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
+                  {t("profile.planTitle")} {planLabel}
+                </h2>
+                {isFamilyMember ? (
+                  <span className="inline-flex items-center rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                    {t("profile.householdMemberBadge")}
+                  </span>
+                ) : null}
+              </div>
+              {isFamilyMember && plan?.household ? (
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                  {t("profile.householdMemberHint")
+                    .replace("{name}", plan.household.name)
+                    .replace(
+                      "{plan}",
+                      plan.householdOwnerPlan
+                        ? formatPlanLabel(plan.householdOwnerPlan)
+                        : "Family",
+                    )}
+                </p>
+              ) : null}
               <p className="mt-1 text-sm text-[var(--ink-soft)]">
                 {t("profile.planSubtitle")}
               </p>

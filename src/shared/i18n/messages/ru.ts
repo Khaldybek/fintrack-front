@@ -108,6 +108,9 @@ export const ru = {
     managePlan: "Управление тарифом",
     upgradePlan: "Оформить тариф",
     changePlan: "Сменить тариф",
+    householdMemberBadge: "Участник семьи",
+    householdMemberHint:
+      "Семейный режим через «{name}». Тариф владельца: {plan}.",
     deleteAccountTitle: "Удалить счёт?",
     deleteAccountBody:
       "{name} будет удалён. Транзакции по нему останутся в истории, но привязка к счёту может измениться.",

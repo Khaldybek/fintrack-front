@@ -147,6 +147,8 @@ export type {
   PlanSlug,
   PlanLimits,
   PlanFeatures,
+  FamilyModeSource,
+  PlanHouseholdSummary,
   PlanSubscription,
   BillingPlanCode,
   BillingPlan,

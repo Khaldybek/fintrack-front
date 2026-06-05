@@ -1,30 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { usePlan } from "@/app/providers/plan-provider";
-import { getHousehold } from "@/shared/api";
+import { hasEffectiveFamilyMode } from "@/shared/lib/plan";
 
-/** Family + членство в household — можно включать sharedWithHousehold */
+/** Family (подписка или членство) + household — можно включать sharedWithHousehold */
 export function useCanShareAccountWithHousehold(): {
   canShare: boolean;
   loading: boolean;
 } {
-  const { plan } = usePlan();
-  const familyMode = plan?.features?.familyMode ?? false;
-  const [hasHousehold, setHasHousehold] = useState(false);
-  const [loading, setLoading] = useState(familyMode);
+  const { plan, isLoading } = usePlan();
+  const familyMode = hasEffectiveFamilyMode(plan);
+  const hasHousehold = plan?.household != null;
 
-  useEffect(() => {
-    if (!familyMode) {
-      setHasHousehold(false);
-      setLoading(false);
-      return;
-    }
-    getHousehold()
-      .then((h) => setHasHousehold(Boolean(h?.id)))
-      .catch(() => setHasHousehold(false))
-      .finally(() => setLoading(false));
-  }, [familyMode]);
-
-  return { canShare: familyMode && hasHousehold, loading };
+  return {
+    canShare: familyMode && hasHousehold,
+    loading: isLoading,
+  };
 }

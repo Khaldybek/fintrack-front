@@ -109,6 +109,9 @@ export const kk = {
     managePlan: "Тарифті басқару",
     upgradePlan: "Тарифті рәсімдеу",
     changePlan: "Тарифті ауыстыру",
+    householdMemberBadge: "Отбасы мүшесі",
+    householdMemberHint:
+      "«{name}» отбасы арқылы отбасылық режим. Иесінің тарифі: {plan}.",
     deleteAccountTitle: "Есепті жою керек пе?",
     deleteAccountBody:
       "{name} жойылады. Транзакциялар тарихта қалады, бірақ есепке байланыс өзгеруі мүмкін.",

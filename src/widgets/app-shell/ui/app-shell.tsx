@@ -111,7 +111,6 @@ export function AppShell({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <LocaleSwitcher className="md:hidden" compact />
                 {actionAs ??
                   (actionLabel ? (
                     <button className="action-btn" type="button">
@@ -184,6 +183,9 @@ export function AppShell({
               </Link>
             );
           })}
+          <div className="border-t border-[var(--line)] px-3 py-3">
+            <LocaleSwitcher className="w-full justify-center" compact />
+          </div>
         </div>
       ) : null}
     </div>

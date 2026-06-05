@@ -87,7 +87,11 @@ export function HouseholdAcceptContent() {
 
   if (loading || authLoading) {
     return (
-      <AuthShell title={t("family.accept.title")} subtitle={t("common.loading")}>
+      <AuthShell
+        helperText=""
+        title={t("family.accept.title")}
+        subtitle={t("common.loading")}
+      >
         <p className="text-sm text-[var(--ink-muted)]">{t("common.loading")}</p>
       </AuthShell>
     );
@@ -95,7 +99,7 @@ export function HouseholdAcceptContent() {
 
   if (!token || (error && !preview)) {
     return (
-      <AuthShell title={t("family.accept.title")} subtitle="">
+      <AuthShell helperText="" title={t("family.accept.title")} subtitle="">
         <div className="alert alert-warn">{error ?? t("family.accept.invalidToken")}</div>
         <Link className="auth-primary mt-4 inline-block text-center" href={ROUTES.login}>
           {t("family.accept.login")}
@@ -107,6 +111,7 @@ export function HouseholdAcceptContent() {
   if (accepted) {
     return (
       <AuthShell
+        helperText=""
         title={t("family.accept.success")}
         subtitle={preview?.householdName ?? ""}
       >
@@ -131,6 +136,7 @@ export function HouseholdAcceptContent() {
 
   return (
     <AuthShell
+      helperText=""
       title={t("family.accept.title")}
       subtitle={t("family.accept.subtitle").replace(
         "{name}",

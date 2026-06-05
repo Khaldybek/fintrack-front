@@ -25,10 +25,53 @@ const DEFAULT_FEATURES: PlanFeatures = {
   familyMode: false,
 };
 
+function normalizeFeatures(
+  raw: Partial<PlanFeatures> | undefined,
+  fallback: PlanFeatures,
+): PlanFeatures {
+  if (!raw) return fallback;
+  return {
+    dashboardIndex: Boolean(raw.dashboardIndex),
+    forecast: raw.forecast !== false,
+    familyMode: Boolean(raw.familyMode),
+  };
+}
+
+function normalizeHouseholdSummary(
+  raw: PlanResponse["household"],
+): PlanResponse["household"] {
+  if (!raw || typeof raw !== "object") return raw ?? null;
+  const o = raw as unknown as Record<string, unknown>;
+  const role = o.role;
+  const validRole =
+    role === "owner" || role === "member" || role === "viewer" ? role : "member";
+  return {
+    id: String(o.id ?? ""),
+    name: String(o.name ?? ""),
+    role: validRole,
+    isOwner: Boolean(o.isOwner ?? o.is_owner),
+  };
+}
+
 /** Нормализует ответ GET /me/plan — бэк после оплаты может не отдать features/limits. */
 export function normalizePlanResponse(data: PlanResponse): PlanResponse {
   const slug = (data.plan ?? "free") as PlanSlug;
   const paid = slug !== "free";
+
+  const subscriptionFeatures: PlanFeatures = paid
+    ? {
+        dashboardIndex: true,
+        forecast: true,
+        familyMode: slug === "family_monthly" || slug === "family_yearly",
+      }
+    : DEFAULT_FEATURES;
+
+  const features = normalizeFeatures(data.features, subscriptionFeatures);
+
+  const featuresEffective = normalizeFeatures(
+    data.featuresEffective,
+    features,
+  );
 
   return {
     ...data,
@@ -42,22 +85,28 @@ export function normalizePlanResponse(data: PlanResponse): PlanResponse {
       : paid
         ? { accounts: null, budgets: null, goals: null }
         : DEFAULT_FREE_LIMITS,
-    features: data.features
-      ? {
-          dashboardIndex: Boolean(data.features.dashboardIndex),
-          forecast: data.features.forecast !== false,
-          familyMode: Boolean(data.features.familyMode),
-        }
-      : paid
-        ? {
-            dashboardIndex: true,
-            forecast: true,
-            familyMode:
-              slug === "family_monthly" || slug === "family_yearly",
-          }
-        : DEFAULT_FEATURES,
+    features,
+    featuresEffective,
+    familyModeSource: data.familyModeSource ?? null,
+    household: normalizeHouseholdSummary(data.household),
+    householdOwnerPlan: data.householdOwnerPlan ?? null,
     subscription: data.subscription ?? null,
   };
+}
+
+/** Фичи для гейтинга и «Семейный режим: да/нет» в UI */
+export function getEffectiveFeatures(plan: PlanResponse | null): PlanFeatures {
+  if (!plan) return DEFAULT_FEATURES;
+  return plan.featuresEffective ?? plan.features ?? DEFAULT_FEATURES;
+}
+
+export function hasEffectiveFamilyMode(plan: PlanResponse | null): boolean {
+  return getEffectiveFeatures(plan).familyMode;
+}
+
+/** Участник чужой семьи без своей подписки Family */
+export function isHouseholdMemberOnFree(plan: PlanResponse | null): boolean {
+  return plan?.plan === "free" && plan.household != null;
 }
 
 export function isAtLimit(count: number, limit: number | null | undefined): boolean {

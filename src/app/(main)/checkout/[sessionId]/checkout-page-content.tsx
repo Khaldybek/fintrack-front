@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { usePlan } from "@/app/providers/plan-provider";
 import { ApiError, confirmBillingCheckout } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
@@ -28,6 +29,7 @@ function formatCountdown(ms: number): string {
 export function CheckoutPageContent({ sessionId }: CheckoutPageContentProps) {
   const { t } = useI18n();
   const router = useRouter();
+  const { refreshPlan } = usePlan();
   const [session] = useState(() => loadCheckoutSession(sessionId));
   const [cardNumber, setCardNumber] = useState("4242424242424242");
   const [decline, setDecline] = useState(false);
@@ -69,6 +71,7 @@ export function CheckoutPageContent({ sessionId }: CheckoutPageContentProps) {
         cardBrand: "visa",
         ...(decline ? { decline: true } : {}),
       });
+      await refreshPlan();
       clearCheckoutSession(sessionId);
       router.push(ROUTES.billingSuccess);
     } catch (err) {
