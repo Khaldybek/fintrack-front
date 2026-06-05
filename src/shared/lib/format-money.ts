@@ -37,3 +37,24 @@ export function formatMoney(
 
   return String(value) || fallback;
 }
+
+const CENTS_CURRENCIES = new Set(["USD", "EUR"]);
+
+/**
+ * Парсит ввод начального баланса счёта в balanceMinor для POST /v1/accounts.
+ * Пустая строка → null (поле не отправлять).
+ * KZT/RUB — целые единицы; USD/EUR — пользователь вводит в долларах/евро, в API — центы.
+ */
+export function parseBalanceMinorInput(
+  raw: string,
+  currency: string,
+): number | null {
+  const trimmed = raw.replace(/\s/g, "").replace(",", ".");
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0) return null;
+  if (CENTS_CURRENCIES.has(currency)) {
+    return Math.round(n * 100);
+  }
+  return Math.round(n);
+}

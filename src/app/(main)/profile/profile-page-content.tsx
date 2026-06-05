@@ -9,11 +9,18 @@ import {
   AddAccountModal,
   EditAccountModal,
 } from "@/features/add-account";
-import type { Account, PlanResponse, Profile } from "@/shared/api";
-import { deleteAccount, getAccounts, getMe, getMePlan } from "@/shared/api";
+import { usePlan } from "@/app/providers/plan-provider";
+import type { Account, BillingInvoice, Profile } from "@/shared/api";
+import {
+  cancelBillingSubscription,
+  deleteAccount,
+  getAccounts,
+  getBillingInvoices,
+  getMe,
+} from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
-import { ActionInfoModal } from "@/shared/ui";
+import { formatLimitValue, formatPlanLabel } from "@/shared/lib/plan";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 
@@ -26,10 +33,14 @@ const localeLabel: Record<string, string> = {
 export function ProfilePageContent() {
   const { t, locale, setLocale } = useI18n();
   const { logout } = useAuth();
+  const { plan, refreshPlan, isPaid } = usePlan();
   const { refresh: refreshAccountsNav } = useAccountsNav();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [billingMessage, setBillingMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -59,10 +70,9 @@ export function ProfilePageContent() {
   };
 
   useEffect(() => {
-    Promise.all([getMe(), getMePlan(), getAccounts()])
-      .then(([me, planData, accs]) => {
+    Promise.all([getMe(), getAccounts()])
+      .then(([me, accs]) => {
         setProfile(me);
-        setPlan(planData);
         setAccounts(accs ?? []);
       })
       .catch((err) => {
@@ -72,6 +82,32 @@ export function ProfilePageContent() {
         setLoading(false);
       });
   }, [t]);
+
+  useEffect(() => {
+    if (!isPaid) {
+      setInvoices([]);
+      return;
+    }
+    setInvoicesLoading(true);
+    getBillingInvoices(20)
+      .then((res) => setInvoices(res.invoices ?? []))
+      .catch(() => setInvoices([]))
+      .finally(() => setInvoicesLoading(false));
+  }, [isPaid, plan?.plan]);
+
+  const handleCancelSubscription = async () => {
+    setCanceling(true);
+    setBillingMessage(null);
+    try {
+      const res = await cancelBillingSubscription();
+      setBillingMessage(res.message);
+      await refreshPlan();
+    } catch (err) {
+      setBillingMessage((err as Error)?.message ?? t("billing.cancelError"));
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -103,15 +139,16 @@ export function ProfilePageContent() {
     );
   }
 
-  const planLabel = plan?.plan === "pro" ? "Pro" : "Free";
+  const planLabel = plan ? formatPlanLabel(plan.plan) : "Free";
   const planLimits = plan?.limits;
+  const subscription = plan?.subscription;
 
   const planLimitsText =
     planLimits && plan
       ? t("profile.planLimits")
-          .replace("{accounts}", String(planLimits.accounts))
-          .replace("{budgets}", String(planLimits.budgets))
-          .replace("{goals}", String(planLimits.goals))
+          .replace("{accounts}", formatLimitValue(planLimits.accounts))
+          .replace("{budgets}", formatLimitValue(planLimits.budgets))
+          .replace("{goals}", formatLimitValue(planLimits.goals))
           .replace(
             "{index}",
             plan.features.dashboardIndex ? t("common.yes") : t("common.no"),
@@ -293,7 +330,7 @@ export function ProfilePageContent() {
         </article>
 
         <article className="card p-5 md:p-6 xl:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
                 {t("profile.planTitle")} {planLabel}
@@ -307,19 +344,90 @@ export function ProfilePageContent() {
                 </p>
               ) : null}
             </div>
-            <ActionInfoModal
-              confirmLabel={t("profile.subscriptionModalConfirm")}
-              description={t("profile.subscriptionModalDesc")}
-              items={[
-                `Текущий план: ${planLabel}`,
-                "Pro: ₸ 2 990 / месяц",
-                "Пробный период: 7 дней",
-              ]}
-              title={t("profile.subscriptionModalTitle")}
-              triggerClassName="action-btn"
-              triggerLabel={t("profile.manageSubscription")}
-            />
+            <Link className="action-btn" href={ROUTES.pricing}>
+              {isPaid ? t("profile.changePlan") : t("profile.upgradePlan")}
+            </Link>
           </div>
+
+          {subscription ? (
+            <div className="mt-5 space-y-2 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4 text-sm">
+              <div className="metric-row">
+                <span>{t("billing.period")}</span>
+                <span className="mono">
+                  {subscription.currentPeriodStart} — {subscription.currentPeriodEnd}
+                </span>
+              </div>
+              {subscription.daysUntilRenewal != null ? (
+                <div className="metric-row">
+                  <span>{t("billing.daysUntilRenewal")}</span>
+                  <span className="mono">{subscription.daysUntilRenewal}</span>
+                </div>
+              ) : null}
+              {subscription.paymentMethodLast4 ? (
+                <div className="metric-row">
+                  <span>{t("billing.paymentMethod")}</span>
+                  <span className="mono">
+                    {subscription.paymentMethodBrand ?? "card"} ••••{" "}
+                    {subscription.paymentMethodLast4}
+                  </span>
+                </div>
+              ) : null}
+              {subscription.cancelAtPeriodEnd ? (
+                <p className="text-xs text-[var(--ink-muted)]">
+                  {t("billing.cancelScheduled")}
+                </p>
+              ) : (
+                <button
+                  className="filter-chip mt-2"
+                  disabled={canceling}
+                  onClick={() => void handleCancelSubscription()}
+                  type="button"
+                >
+                  {canceling ? t("billing.canceling") : t("billing.cancelSubscription")}
+                </button>
+              )}
+            </div>
+          ) : null}
+
+          {billingMessage ? (
+            <div className="alert alert-info mt-4">{billingMessage}</div>
+          ) : null}
+
+          {isPaid ? (
+            <div className="mt-5">
+              <h3 className="text-sm font-semibold text-[var(--ink-strong)]">
+                {t("billing.invoiceHistory")}
+              </h3>
+              {invoicesLoading ? (
+                <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                  {t("common.loading")}
+                </p>
+              ) : invoices.length === 0 ? (
+                <p className="mt-2 text-sm text-[var(--ink-muted)]">
+                  {t("billing.noInvoices")}
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {invoices.map((inv) => (
+                    <li
+                      key={inv.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
+                    >
+                      <span>{inv.description || formatPlanLabel(inv.planCode)}</span>
+                      <span className="mono text-[var(--ink-soft)]">
+                        {inv.amount?.formatted ?? `${inv.amountMinor} ₸`}
+                      </span>
+                      <span className="text-xs text-[var(--ink-muted)]">
+                        {inv.paidAt
+                          ? new Date(inv.paidAt).toLocaleDateString("ru-KZ")
+                          : new Date(inv.createdAt).toLocaleDateString("ru-KZ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </article>
 
         <div className="xl:col-span-2">
@@ -329,6 +437,7 @@ export function ProfilePageContent() {
 
       {showAddAccount && (
         <AddAccountModal
+          existingAccountCount={accounts.length}
           onClose={() => setShowAddAccount(false)}
           onSuccess={() => {
             loadAccounts();

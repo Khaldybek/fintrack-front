@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@/app/styles/globals.css";
 import { I18nProvider } from "@/shared/i18n";
 import { AuthProvider } from "./providers/auth-provider";
+import { PlanProvider } from "./providers/plan-provider";
 import { DocumentLang } from "./providers/document-lang";
 import { OAuthHashBridge } from "./providers/oauth-hash-bridge";
 
@@ -21,8 +22,10 @@ export default function RootLayout({
         <I18nProvider>
           <DocumentLang />
           <AuthProvider>
-            <OAuthHashBridge />
-            {children}
+            <PlanProvider>
+              <OAuthHashBridge />
+              {children}
+            </PlanProvider>
           </AuthProvider>
         </I18nProvider>
       </body>

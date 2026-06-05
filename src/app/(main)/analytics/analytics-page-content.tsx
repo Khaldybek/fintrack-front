@@ -2,8 +2,10 @@
 
 import { Package } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAccountsNav } from "@/app/(main)/accounts-nav-context";
+import { usePlan } from "@/app/providers/plan-provider";
 import type {
   AnalyticsAnomalyItem,
   AnalyticsCategoryItem,
@@ -96,6 +98,8 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 export function AnalyticsPageContent() {
   const router = useRouter();
   const { hasAccounts } = useAccountsNav();
+  const { plan } = usePlan();
+  const dashboardIndexEnabled = plan?.features.dashboardIndex ?? false;
 
   useEffect(() => {
     if (hasAccounts === false) router.replace(ROUTES.home);
@@ -177,7 +181,9 @@ export function AnalyticsPageContent() {
         bTo: lastDayOfMonth,
       }).catch(() => null),
       getDashboardSummary().catch(() => null),
-      getDashboardIndex().catch(() => null),
+      dashboardIndexEnabled
+        ? getDashboardIndex().catch(() => null)
+        : Promise.resolve(null),
       getMonthlyReportSummary().catch(() => null),
     ])
       .then(
@@ -226,7 +232,7 @@ export function AnalyticsPageContent() {
       )
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear]);
+  }, [selectedYear, dashboardIndexEnabled]);
 
   useEffect(() => {
     load();
@@ -968,7 +974,15 @@ export function AnalyticsPageContent() {
                 <div className="metric-row">
                   <span>Фин. индекс</span>
                   <span className="mono">
-                    {index != null ? `${index.score ?? "—"} / 100` : "—"}
+                    {dashboardIndexEnabled && index != null
+                      ? `${index.score ?? "—"} / 100`
+                      : dashboardIndexEnabled
+                        ? "—"
+                        : (
+                          <Link className="underline" href={ROUTES.pricing}>
+                            Pro
+                          </Link>
+                        )}
                   </span>
                 </div>
                 <div className="metric-row">

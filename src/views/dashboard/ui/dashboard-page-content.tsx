@@ -1,8 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
+import { usePlan } from "@/app/providers/plan-provider";
+import { FeatureGatedError } from "@/shared/api";
+import { ROUTES } from "@/shared/config";
 import { formatMoney } from "@/shared/lib";
+import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
 import { ActionInfoModal } from "@/shared/ui";
 import { AddTransactionModal } from "@/features/add-transaction";
 import { AppShell } from "@/widgets/app-shell";
@@ -91,6 +96,9 @@ function formatCashflowMonthLabel(ym: string): string {
 
 export function DashboardPageContent() {
   const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const { plan } = usePlan();
+  const dashboardIndexEnabled = plan?.features.dashboardIndex ?? false;
+  const [indexGated, setIndexGated] = useState(false);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [forecast, setForecast] = useState<DashboardForecast | null>(null);
@@ -125,12 +133,21 @@ export function DashboardPageContent() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const dateFromMonth = monthStart.toISOString().slice(0, 10);
 
+    const indexPromise = dashboardIndexEnabled
+      ? getDashboardIndex().catch((err) => {
+          if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
+            setIndexGated(true);
+          }
+          return null;
+        })
+      : Promise.resolve(null);
+
     Promise.all([
       getDashboardSummary(),
       getDashboardForecast(),
       getDashboardAlerts(),
       getDashboardInsight(),
-      getDashboardIndex().catch(() => null),
+      indexPromise,
       getSalarySchedules().catch(() => []),
       getDashboardCharts({ dateFrom: dateFromWeek, dateTo, months: 6 }).catch(() => null),
       getDashboardCharts({ dateFrom: dateFromMonth, dateTo, months: 6 }).catch(() => null),
@@ -169,7 +186,7 @@ export function DashboardPageContent() {
     if (!isAuthenticated) { setLoading(false); return; }
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, dashboardIndexEnabled]);
 
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,7 +308,17 @@ export function DashboardPageContent() {
                 <p className="metric-hint">Остаток: {netStr}</p>
               </article>
 
-              {index != null && (
+              {!dashboardIndexEnabled || indexGated ? (
+                <article className="card metric-card loading-reveal stagger-4 xl:col-span-2">
+                  <p className="metric-label">Финансовый индекс (0–100)</p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+                    Индекс здоровья доступен на тарифах Pro и Family.
+                  </p>
+                  <Link className="action-btn mt-4 inline-block" href={ROUTES.pricing}>
+                    Смотреть тарифы
+                  </Link>
+                </article>
+              ) : index != null ? (
                 <article className="card metric-card loading-reveal stagger-4 xl:col-span-2">
                   <p className="metric-label">Финансовый индекс (0–100)</p>
                   <div className="mt-2 flex items-end gap-3">
@@ -309,7 +336,7 @@ export function DashboardPageContent() {
                     ))}
                   </div>
                 </article>
-              )}
+              ) : null}
 
               <article className="card metric-card loading-reveal">
                 <p className="metric-label">Прогноз до конца месяца</p>

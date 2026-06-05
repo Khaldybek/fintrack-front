@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { usePlan } from "@/app/providers/plan-provider";
+import { UpgradeModal } from "@/features/upgrade/ui/upgrade-modal";
+import { ROUTES } from "@/shared/config";
 import { formatMoney, useBodyScrollLock } from "@/shared/lib";
+import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
 import { AppShell } from "@/widgets/app-shell";
 import {
   getBudgets,
@@ -55,6 +60,9 @@ function explanationClass(sev: SeverityLevel): string {
 
 /** Контент без обёртки AppShell — для встраивания на объединённую страницу «Бюджеты и цели». */
 export function BudgetsSection() {
+  const { canAddBudget } = usePlan();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState("");
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +98,13 @@ export function BudgetsSection() {
   }, [modalOpen, editBudget, loadCategories]);
 
   const openCreateModal = () => {
+    if (!canAddBudget(budgets.length)) {
+      setUpgradeMessage(
+        "Free-план позволяет только 1 бюджет. Перейдите на Pro для неограниченного количества.",
+      );
+      setUpgradeOpen(true);
+      return;
+    }
     setModalOpen(true);
     setFormError(null);
     setIsGated(false);
@@ -123,9 +138,16 @@ export function BudgetsSection() {
       await loadBudgets();
       setModalOpen(false);
     } catch (err) {
-      if (err instanceof FeatureGatedError) {
+      if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
         setIsGated(true);
-        setFormError("Free-план позволяет только 1 бюджет. Перейдите на Pro для неограниченного количества.");
+        const hint =
+          err instanceof FeatureGatedError
+            ? err.upgradeHint
+            : (err as { upgradeHint?: string }).upgradeHint;
+        setFormError(
+          hint ??
+            "Free-план позволяет только 1 бюджет. Перейдите на Pro для неограниченного количества.",
+        );
       } else {
         setFormError((err as Error)?.message ?? "Не удалось создать бюджет");
       }
@@ -299,7 +321,12 @@ export function BudgetsSection() {
                     <div className={`alert ${isGated ? "alert-info" : "alert-warn"}`}>
                       {formError}
                       {isGated && (
-                        <a href="/pro" className="ml-2 font-medium underline">Перейти на Pro →</a>
+                        <Link
+                          className="ml-2 font-medium underline"
+                          href={ROUTES.pricing}
+                        >
+                          Смотреть тарифы →
+                        </Link>
                       )}
                     </div>
                   )}
@@ -430,6 +457,12 @@ export function BudgetsSection() {
           </section>
         </div>
       )}
+
+      <UpgradeModal
+        message={upgradeMessage}
+        onClose={() => setUpgradeOpen(false)}
+        open={upgradeOpen}
+      />
     </>
   );
 }

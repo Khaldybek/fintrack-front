@@ -3,7 +3,7 @@ export {
   openIosBlobPreviewWindow,
 } from "./download-blob";
 export { formatAmount } from "./format";
-export { formatMoney } from "./format-money";
+export { formatMoney, parseBalanceMinorInput } from "./format-money";
 export {
   type ParsedOAuthRedirect,
   parseOAuthRedirectLocation,

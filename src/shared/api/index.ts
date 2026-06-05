@@ -12,6 +12,14 @@ export {
 export type { RegisterBody, LoginBody } from "./auth";
 export { getMe, patchMe, getMePlan } from "./me";
 export {
+  getBillingPlans,
+  getBillingSubscription,
+  createBillingCheckout,
+  confirmBillingCheckout,
+  cancelBillingSubscription,
+  getBillingInvoices,
+} from "./billing";
+export {
   getAccounts,
   getAccount,
   createAccount,
@@ -39,6 +47,13 @@ export {
   receiptOcrTransaction,
   suggestCategoryTransaction,
 } from "./transactions";
+export {
+  uploadStatementImport,
+  getStatementImport,
+  patchStatementImportRows,
+  confirmStatementImport,
+  deleteStatementImport,
+} from "./statement-imports";
 export {
   getDashboardIndex,
   getDashboardSummary,
@@ -121,6 +136,19 @@ export type {
   PlanSlug,
   PlanLimits,
   PlanFeatures,
+  PlanSubscription,
+  BillingPlanCode,
+  BillingPlan,
+  BillingPlansResponse,
+  BillingCheckoutBody,
+  BillingCheckoutSession,
+  BillingCheckoutConfirmBody,
+  BillingCheckoutConfirmResponse,
+  BillingCancelResponse,
+  BillingInvoice,
+  BillingInvoicesResponse,
+  BillingAmount,
+  PaymentFailedBody,
 } from "./types";
 export type {
   Account,
@@ -156,6 +184,16 @@ export type {
   ReceiptOcrResponse,
   SuggestCategoryBody,
   SuggestCategoryResponse,
+} from "./types";
+export type {
+  StatementImportPreview,
+  StatementImportRow,
+  StatementImportBank,
+  StatementImportStats,
+  PatchStatementImportRowsBody,
+  PatchStatementImportRowItem,
+  ConfirmStatementImportBody,
+  ConfirmStatementImportResponse,
 } from "./types";
 export type {
   DashboardIndex,

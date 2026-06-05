@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
+import { usePlan } from "@/app/providers/plan-provider";
+import { UpgradeModal } from "@/features/upgrade/ui/upgrade-modal";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 import {
@@ -12,6 +14,7 @@ import {
   deleteHouseholdMember,
   leaveHousehold,
   getHouseholdOverview,
+  FeatureGatedError,
 } from "@/shared/api";
 import type {
   Household,
@@ -20,6 +23,7 @@ import type {
   HouseholdOverviewResponse,
 } from "@/shared/api";
 import { formatMoney, useBodyScrollLock } from "@/shared/lib";
+import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
 
 const ROLE_LABEL: Record<HouseholdMemberRole, string> = {
   owner: "Владелец",
@@ -50,6 +54,10 @@ function formatPeriodLabel(from: string, to: string): string {
 
 export default function FamilyPage() {
   const { user } = useAuth();
+  const { plan } = usePlan();
+  const familyModeEnabled = plan?.features.familyMode ?? false;
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState("");
 
   const [household, setHousehold] = useState<Household | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,12 +125,30 @@ export default function FamilyPage() {
     setCreateError(null);
     const name = createName.trim();
     if (!name) { setCreateError("Введите название домохозяйства"); return; }
+    if (!familyModeEnabled) {
+      setUpgradeMessage(
+        "Семейный режим доступен на тарифе Family. Оформите подписку Family.",
+      );
+      setUpgradeOpen(true);
+      return;
+    }
     setCreateSubmitting(true);
     try {
       const h = await createHousehold({ name });
       setHousehold(h);
     } catch (err) {
-      setCreateError((err as Error)?.message ?? "Не удалось создать домохозяйство");
+      if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
+        const hint =
+          err instanceof FeatureGatedError
+            ? err.upgradeHint
+            : (err as { upgradeHint?: string }).upgradeHint;
+        setUpgradeMessage(
+          hint ?? "Семейный режим доступен на тарифе Family.",
+        );
+        setUpgradeOpen(true);
+      } else {
+        setCreateError((err as Error)?.message ?? "Не удалось создать домохозяйство");
+      }
     } finally {
       setCreateSubmitting(false);
     }
@@ -134,6 +160,13 @@ export default function FamilyPage() {
     setInviteSuccess(false);
     const email = inviteEmail.trim();
     if (!email) { setInviteError("Введите email"); return; }
+    if (!familyModeEnabled) {
+      setUpgradeMessage(
+        "Приглашение участников доступно на тарифе Family.",
+      );
+      setUpgradeOpen(true);
+      return;
+    }
     setInviteSubmitting(true);
     try {
       const updated = await inviteHouseholdMember({ email, role: inviteRole });
@@ -142,7 +175,16 @@ export default function FamilyPage() {
       setInviteEmail("");
       refreshOverview();
     } catch (err) {
-      setInviteError((err as Error)?.message ?? "Не удалось пригласить участника");
+      if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
+        const hint =
+          err instanceof FeatureGatedError
+            ? err.upgradeHint
+            : (err as { upgradeHint?: string }).upgradeHint;
+        setUpgradeMessage(hint ?? "Приглашение участников доступно на тарифе Family.");
+        setUpgradeOpen(true);
+      } else {
+        setInviteError((err as Error)?.message ?? "Не удалось пригласить участника");
+      }
     } finally {
       setInviteSubmitting(false);
     }
@@ -593,6 +635,12 @@ export default function FamilyPage() {
           </section>
         </div>
       )}
+
+      <UpgradeModal
+        message={upgradeMessage}
+        onClose={() => setUpgradeOpen(false)}
+        open={upgradeOpen}
+      />
     </>
   );
 }

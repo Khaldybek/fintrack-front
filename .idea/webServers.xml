@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="07005c0a-bf2c-4555-a8a1-0807109968d3" name="ubuntu">
+        <fileTransfer rootFolder="/home/ubuntu/test/fintrack-front" accessType="SFTP" host="185.146.3.184" port="22" sshConfigId="bdabe986-ebb0-42ae-9429-a420e5150345" sshConfig="ubuntu@185.146.3.184:22 agent" authAgent="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" isUseSudo="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

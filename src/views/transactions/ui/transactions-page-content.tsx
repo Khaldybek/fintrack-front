@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAccountsNav } from "@/app/(main)/accounts-nav-context";
 import { AddTransactionModal } from "@/features/add-transaction";
 import type { AddTransactionModalHandle } from "@/features/add-transaction";
+import {
+  ImportBankStatementModal,
+  type ImportBankStatementModalHandle,
+} from "@/features/import-bank-statement";
 import { EditTransactionModal } from "@/features/edit-transaction";
 import { SetSplitsModal } from "@/features/set-splits";
 import { ManageTemplatesModal } from "@/features/manage-templates";
@@ -112,6 +117,8 @@ export function TransactionsPageContent() {
   const [showManageTemplates, setShowManageTemplates] = useState(false);
 
   const addModalRef = useRef<AddTransactionModalHandle>(null);
+  const importModalRef = useRef<ImportBankStatementModalHandle>(null);
+  const { refresh: refreshAccountsNav } = useAccountsNav();
 
   const now = new Date();
   const today = toLocalDateString(now);
@@ -196,6 +203,11 @@ export function TransactionsPageContent() {
 
   const handleSplitSuccess = (updated: Transaction) => {
     setItems((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  };
+
+  const handleImportSuccess = () => {
+    load();
+    refreshAccountsNav();
   };
 
   const applyTemplate = (t: TransactionTemplate) => {
@@ -478,6 +490,13 @@ export function TransactionsPageContent() {
               >
                 Сканировать чек по фото
               </button>
+              <button
+                className="tx-side-btn w-full"
+                type="button"
+                onClick={() => importModalRef.current?.open()}
+              >
+                Добавить выписку из банка
+              </button>
               <p className="text-xs text-[var(--ink-muted)]">
                 Или нажмите «+ Добавить» и в модалке выберите «Выбрать фото чека».
               </p>
@@ -516,6 +535,10 @@ export function TransactionsPageContent() {
           onChanged={loadTemplates}
         />
       )}
+      <ImportBankStatementModal
+        ref={importModalRef}
+        onSuccess={handleImportSuccess}
+      />
     </AppShell>
   );
 }

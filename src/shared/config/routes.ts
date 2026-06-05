@@ -18,6 +18,8 @@ export const ROUTES = {
   security: "/security",
   notifications: "/notifications",
   pro: "/pro",
+  pricing: "/pricing",
+  billingSuccess: "/billing/success",
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",

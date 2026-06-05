@@ -40,13 +40,26 @@ export interface PatchMeBody {
   avatarUrl?: string;
 }
 
-/** План и лимиты (GET /v1/me/plan) */
-export type PlanSlug = "free" | "pro";
+/** План и лимиты (GET /v1/me/plan, GET /v1/billing/subscription) */
+export type PlanSlug =
+  | "free"
+  | "pro_monthly"
+  | "pro_yearly"
+  | "family_monthly"
+  | "family_yearly";
+
+export type BillingPlanCode = Exclude<PlanSlug, "free">;
+
+export type PlanSubscriptionStatus =
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete";
 
 export interface PlanLimits {
-  accounts: number;
-  budgets: number;
-  goals: number;
+  accounts: number | null;
+  budgets: number | null;
+  goals: number | null;
 }
 
 export interface PlanFeatures {
@@ -55,10 +68,105 @@ export interface PlanFeatures {
   familyMode: boolean;
 }
 
+export interface PlanSubscription {
+  id?: string;
+  planCode: BillingPlanCode;
+  status: PlanSubscriptionStatus;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  paymentMethodLast4?: string;
+  paymentMethodBrand?: string;
+  daysUntilRenewal?: number;
+}
+
 export interface PlanResponse {
   plan: PlanSlug;
   limits: PlanLimits;
   features: PlanFeatures;
+  subscription?: PlanSubscription | null;
+}
+
+/** Сумма в ответах биллинга */
+export interface BillingAmount {
+  amount_minor: number;
+  currency: string;
+  formatted: string;
+}
+
+/** GET /v1/billing/plans */
+export interface BillingPlan {
+  code: BillingPlanCode;
+  name: string;
+  description: string;
+  amountMinor: number;
+  currency: string;
+  intervalDays: number;
+  features: PlanFeatures;
+}
+
+export interface BillingPlansResponse {
+  plans: BillingPlan[];
+}
+
+/** POST /v1/billing/checkout */
+export interface BillingCheckoutBody {
+  planCode: BillingPlanCode;
+}
+
+export interface BillingCheckoutSession {
+  sessionId: string;
+  planCode: BillingPlanCode;
+  amountMinor: number;
+  amount?: BillingAmount;
+  currency: string;
+  status: "pending" | "completed";
+  expiresAt: string;
+}
+
+/** POST /v1/billing/checkout/:sessionId/confirm */
+export interface BillingCheckoutConfirmBody {
+  cardNumber?: string;
+  cardBrand?: string;
+  decline?: boolean;
+}
+
+export interface BillingCheckoutConfirmResponse {
+  sessionId: string;
+  status: "completed";
+  planCode: BillingPlanCode;
+  subscription: PlanSubscription;
+}
+
+/** POST /v1/billing/cancel */
+export interface BillingCancelResponse {
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string;
+  message: string;
+}
+
+/** GET /v1/billing/invoices */
+export interface BillingInvoice {
+  id: string;
+  planCode: BillingPlanCode;
+  amountMinor: number;
+  amount?: BillingAmount;
+  currency: string;
+  status: "paid" | "failed";
+  description: string;
+  mockCardBrand?: string;
+  mockCardLast4?: string;
+  paidAt?: string;
+  createdAt: string;
+}
+
+export interface BillingInvoicesResponse {
+  invoices: BillingInvoice[];
+}
+
+export interface PaymentFailedBody {
+  code: "PAYMENT_FAILED";
+  message: string;
 }
 
 /** Баланс счёта (amount в minor units + formatted для UI) */
@@ -81,6 +189,8 @@ export interface Account {
 export interface CreateAccountBody {
   name: string;
   currency?: string;
+  /** Начальный баланс: KZT/RUB — целые единицы; USD/EUR — центы (100.50 → 10050) */
+  balanceMinor?: number;
 }
 
 export interface UpdateAccountBody {
@@ -1102,6 +1212,87 @@ export interface MonthlyReportExportBody {
 /** @deprecated API теперь возвращает PDF-blob напрямую */
 export interface MonthlyReportExportResponse {
   url?: string;
+}
+
+/** POST/GET /v1/statement-imports — импорт банковских выписок */
+export type StatementImportStatus = "preview" | "confirmed" | "cancelled";
+
+export interface StatementImportBank {
+  code: string;
+  name: string;
+  confidence: number;
+}
+
+export interface StatementImportFile {
+  name: string;
+  format: "csv" | "xlsx" | "pdf" | string;
+}
+
+export interface StatementImportPeriod {
+  from: string;
+  to: string;
+}
+
+export interface StatementImportStats {
+  total: number;
+  expense: number;
+  income: number;
+  duplicates: number;
+  parseErrors: number;
+}
+
+export type StatementImportDirection = "expense" | "income";
+
+export interface StatementImportRow {
+  id: string;
+  date: string;
+  amountMinor: number;
+  amount?: BillingAmount;
+  memo: string | null;
+  direction: StatementImportDirection;
+  categoryId: string | null;
+  categoryName: string | null;
+  selected: boolean;
+  duplicate: boolean;
+  parseWarning: string | null;
+}
+
+export interface StatementImportPreview {
+  id: string;
+  status: StatementImportStatus;
+  bank: StatementImportBank;
+  file: StatementImportFile;
+  accountId: string;
+  period: StatementImportPeriod;
+  stats: StatementImportStats;
+  rows: StatementImportRow[];
+  expiresAt?: string;
+}
+
+export interface PatchStatementImportRowItem {
+  rowId: string;
+  selected?: boolean;
+  categoryId?: string | null;
+  memo?: string | null;
+}
+
+export interface PatchStatementImportRowsBody {
+  rows: PatchStatementImportRowItem[];
+}
+
+export interface ConfirmStatementImportBody {
+  rowIds?: string[];
+}
+
+export interface ConfirmStatementImportResponse {
+  created: number;
+  skippedDuplicates: number;
+  importId: string;
+  transactionIds: string[];
+}
+
+export interface DeleteStatementImportResponse {
+  success: boolean;
 }
 
 export interface FeatureGatedBody {

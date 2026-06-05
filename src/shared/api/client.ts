@@ -3,7 +3,12 @@
  * Refresh token — в httpOnly cookie (бэкенд). При 401: один общий refresh, повтор запросов.
  */
 import { API_V1, ROUTES } from "@/shared/config";
-import { ApiError, getAccessTokenFromResponse, type FeatureGatedBody } from "./types";
+import {
+  ApiError,
+  FeatureGatedError,
+  getAccessTokenFromResponse,
+  type FeatureGatedBody,
+} from "./types";
 import type { AuthResponse } from "./types";
 
 const STORAGE_KEY = "fintrack_access_token";
@@ -117,10 +122,11 @@ export async function apiClient<T>(
     if (res.status === 403 && body && typeof body === "object" && "code" in body) {
       const gated = body as FeatureGatedBody;
       if (gated.code === "FEATURE_GATED") {
-        throw new ApiError(
+        throw new FeatureGatedError(
           gated.upgrade_hint ?? "Feature gated",
           res.status,
-          body,
+          gated.feature_code,
+          gated.upgrade_hint ?? "Feature gated",
         );
       }
     }
