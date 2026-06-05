@@ -97,7 +97,7 @@ function formatCashflowMonthLabel(ym: string): string {
 export function DashboardPageContent() {
   const { isLoading: authLoading, isAuthenticated } = useAuth();
   const { plan } = usePlan();
-  const dashboardIndexEnabled = plan?.features.dashboardIndex ?? false;
+  const dashboardIndexEnabled = plan?.features?.dashboardIndex ?? false;
   const [indexGated, setIndexGated] = useState(false);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);

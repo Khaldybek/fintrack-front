@@ -55,7 +55,7 @@ function formatPeriodLabel(from: string, to: string): string {
 export default function FamilyPage() {
   const { user } = useAuth();
   const { plan } = usePlan();
-  const familyModeEnabled = plan?.features.familyMode ?? false;
+  const familyModeEnabled = plan?.features?.familyMode ?? false;
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
 

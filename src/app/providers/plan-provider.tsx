@@ -10,7 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { getMePlan, type PlanResponse } from "@/shared/api";
-import { isAtLimit, isFamilyPlan, isPaidPlan } from "@/shared/lib/plan";
+import {
+  isAtLimit,
+  isFamilyPlan,
+  isPaidPlan,
+  normalizePlanResponse,
+} from "@/shared/lib/plan";
 import { useAuth } from "./auth-provider";
 
 type PlanContextValue = {
@@ -38,7 +43,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
     setIsLoading(true);
     try {
-      const data = await getMePlan();
+      const data = normalizePlanResponse(await getMePlan());
       setPlan(data);
     } catch {
       setPlan(null);

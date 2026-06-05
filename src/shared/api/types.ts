@@ -43,6 +43,7 @@ export interface PatchMeBody {
 /** План и лимиты (GET /v1/me/plan, GET /v1/billing/subscription) */
 export type PlanSlug =
   | "free"
+  | "pro"
   | "pro_monthly"
   | "pro_yearly"
   | "family_monthly"

@@ -143,25 +143,25 @@ export function ProfilePageContent() {
   const planLimits = plan?.limits;
   const subscription = plan?.subscription;
 
-  const planLimitsText =
-    planLimits && plan
-      ? t("profile.planLimits")
-          .replace("{accounts}", formatLimitValue(planLimits.accounts))
-          .replace("{budgets}", formatLimitValue(planLimits.budgets))
-          .replace("{goals}", formatLimitValue(planLimits.goals))
-          .replace(
-            "{index}",
-            plan.features.dashboardIndex ? t("common.yes") : t("common.no"),
-          )
-          .replace(
-            "{forecast}",
-            plan.features.forecast ? t("common.yes") : t("common.no"),
-          )
-          .replace(
-            "{family}",
-            plan.features.familyMode ? t("common.yes") : t("common.no"),
-          )
-      : null;
+  const features = plan?.features;
+  const planLimitsText = plan
+    ? t("profile.planLimits")
+        .replace("{accounts}", formatLimitValue(planLimits?.accounts))
+        .replace("{budgets}", formatLimitValue(planLimits?.budgets))
+        .replace("{goals}", formatLimitValue(planLimits?.goals))
+        .replace(
+          "{index}",
+          features?.dashboardIndex ? t("common.yes") : t("common.no"),
+        )
+        .replace(
+          "{forecast}",
+          features?.forecast !== false ? t("common.yes") : t("common.no"),
+        )
+        .replace(
+          "{family}",
+          features?.familyMode ? t("common.yes") : t("common.no"),
+        )
+    : null;
 
   return (
     <AppShell
@@ -418,9 +418,11 @@ export function ProfilePageContent() {
                         {inv.amount?.formatted ?? `${inv.amountMinor} ₸`}
                       </span>
                       <span className="text-xs text-[var(--ink-muted)]">
-                        {inv.paidAt
-                          ? new Date(inv.paidAt).toLocaleDateString("ru-KZ")
-                          : new Date(inv.createdAt).toLocaleDateString("ru-KZ")}
+                        {(inv.paidAt ?? inv.createdAt)
+                          ? new Date(
+                              inv.paidAt ?? inv.createdAt ?? "",
+                            ).toLocaleDateString("ru-KZ")
+                          : "—"}
                       </span>
                     </li>
                   ))}

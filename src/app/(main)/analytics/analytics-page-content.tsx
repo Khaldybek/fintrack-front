@@ -99,7 +99,7 @@ export function AnalyticsPageContent() {
   const router = useRouter();
   const { hasAccounts } = useAccountsNav();
   const { plan } = usePlan();
-  const dashboardIndexEnabled = plan?.features.dashboardIndex ?? false;
+  const dashboardIndexEnabled = plan?.features?.dashboardIndex ?? false;
 
   useEffect(() => {
     if (hasAccounts === false) router.replace(ROUTES.home);
