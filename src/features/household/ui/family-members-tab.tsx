@@ -18,7 +18,6 @@ type FamilyMembersTabProps = {
   onRemoveMember: (memberId: string) => void;
   onLeaveClick: () => void;
   onRefreshHousehold: () => void;
-  onHouseholdUpdate: (h: Household) => void;
 };
 
 export function FamilyMembersTab({
@@ -32,7 +31,6 @@ export function FamilyMembersTab({
   onRemoveMember,
   onLeaveClick,
   onRefreshHousehold,
-  onHouseholdUpdate,
 }: FamilyMembersTabProps) {
   const { t } = useI18n();
   const members = household.members ?? [];
@@ -158,7 +156,6 @@ export function FamilyMembersTab({
         <PendingInvitesList
           invites={pendingInvites}
           onCancelled={onRefreshHousehold}
-          onHouseholdUpdate={onHouseholdUpdate}
         />
 
         {canInvite && (

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Household, HouseholdPendingInvite } from "@/shared/api";
+import type { HouseholdPendingInvite } from "@/shared/api";
 import { deleteHouseholdInvite } from "@/shared/api";
 import { useI18n } from "@/shared/i18n";
 import { formatJoinedAt, roleLabel } from "@/features/household/lib/format";
@@ -8,7 +8,6 @@ import { formatJoinedAt, roleLabel } from "@/features/household/lib/format";
 type PendingInvitesListProps = {
   invites: HouseholdPendingInvite[];
   onCancelled: () => void;
-  onHouseholdUpdate: (h: Household) => void;
 };
 
 export function PendingInvitesList({

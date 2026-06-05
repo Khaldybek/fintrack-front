@@ -25,15 +25,21 @@ export function EditAccountModal({
   onSuccess,
   onClose,
 }: EditAccountModalProps) {
+  const { t } = useI18n();
+  const { canShare } = useCanShareAccountWithHousehold();
   const [name, setName] = useState(account.name);
   const [currency, setCurrency] = useState(account.currency || "KZT");
+  const [sharedWithHousehold, setSharedWithHousehold] = useState(
+    Boolean(account.sharedWithHousehold),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(account.name);
     setCurrency(account.currency || "KZT");
-  }, [account.id, account.name, account.currency]);
+    setSharedWithHousehold(Boolean(account.sharedWithHousehold));
+  }, [account.id, account.name, account.currency, account.sharedWithHousehold]);
 
   const canSubmit = name.trim().length > 0;
 
@@ -45,6 +51,7 @@ export function EditAccountModal({
       const updated = await updateAccount(account.id, {
         name: name.trim(),
         currency: currency || undefined,
+        ...(canShare ? { sharedWithHousehold } : {}),
       });
       onSuccess?.(updated);
       onClose();
@@ -109,6 +116,24 @@ export function EditAccountModal({
           <p className="text-xs text-[var(--ink-muted)]">
             Баланс при редактировании не меняется.
           </p>
+          {canShare && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3">
+              <input
+                checked={sharedWithHousehold}
+                className="mt-0.5"
+                onChange={(e) => setSharedWithHousehold(e.target.checked)}
+                type="checkbox"
+              />
+              <span className="text-sm">
+                <span className="font-medium text-[var(--ink-strong)]">
+                  {t("account.sharedWithHousehold")}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">
+                  {t("account.shareHint")}
+                </span>
+              </span>
+            </label>
+          )}
         </div>
 
         {error && <div className="mt-3 alert alert-warn">{error}</div>}

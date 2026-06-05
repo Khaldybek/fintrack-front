@@ -256,6 +256,7 @@ export function ProfilePageContent() {
                   account={acc}
                   deleteLabel={t("common.delete")}
                   editLabel={t("common.edit")}
+                  sharedBadgeLabel={t("account.sharedBadge")}
                   onDelete={() => setDeleteConfirmId(acc.id)}
                   onEdit={() => setEditingAccount(acc)}
                 />

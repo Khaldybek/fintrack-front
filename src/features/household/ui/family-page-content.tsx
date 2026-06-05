@@ -320,7 +320,6 @@ export function FamilyPageContent() {
                 canInvite={canInvite}
                 household={household}
                 isOwner={isOwner}
-                onHouseholdUpdate={setHousehold}
                 onInviteClick={() => {
                   setInviteOpen(true);
                   setInviteError(null);

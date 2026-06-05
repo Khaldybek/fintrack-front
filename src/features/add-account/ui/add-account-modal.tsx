@@ -4,10 +4,12 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { usePlan } from "@/app/providers/plan-provider";
 import { UpgradeModal } from "@/features/upgrade/ui/upgrade-modal";
+import { useCanShareAccountWithHousehold } from "@/features/add-account/lib/use-can-share-account";
 import { createAccount, FeatureGatedError } from "@/shared/api";
 import type { Account } from "@/shared/api";
 import { parseBalanceMinorInput } from "@/shared/lib";
 import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
+import { useI18n } from "@/shared/i18n";
 
 export type AddAccountModalProps = {
   onSuccess?: (account: Account) => void;
@@ -35,10 +37,13 @@ export function AddAccountModal({
   onClose,
   existingAccountCount = 0,
 }: AddAccountModalProps) {
+  const { t } = useI18n();
   const { canAddAccount } = usePlan();
+  const { canShare } = useCanShareAccountWithHousehold();
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("KZT");
   const [balanceRaw, setBalanceRaw] = useState("");
+  const [sharedWithHousehold, setSharedWithHousehold] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -73,6 +78,7 @@ export function AddAccountModal({
         name: name.trim(),
         currency: currency || undefined,
         ...(balanceMinor !== null ? { balanceMinor } : {}),
+        ...(canShare && sharedWithHousehold ? { sharedWithHousehold: true } : {}),
       });
       onSuccess?.(account);
       onClose();
@@ -160,6 +166,24 @@ export function AddAccountModal({
               0. Транзакция не создаётся.
             </span>
           </label>
+          {canShare && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3">
+              <input
+                checked={sharedWithHousehold}
+                className="mt-0.5"
+                onChange={(e) => setSharedWithHousehold(e.target.checked)}
+                type="checkbox"
+              />
+              <span className="text-sm">
+                <span className="font-medium text-[var(--ink-strong)]">
+                  {t("account.sharedWithHousehold")}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--ink-muted)]">
+                  {t("account.shareHint")}
+                </span>
+              </span>
+            </label>
+          )}
         </div>
 
         {atLimit ? (

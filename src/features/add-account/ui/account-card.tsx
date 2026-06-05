@@ -21,6 +21,7 @@ export type AccountCardProps = {
   account: Account;
   editLabel: string;
   deleteLabel: string;
+  sharedBadgeLabel?: string;
   onEdit: () => void;
   onDelete: () => void;
 };
@@ -29,6 +30,7 @@ export function AccountCard({
   account,
   editLabel,
   deleteLabel,
+  sharedBadgeLabel,
   onEdit,
   onDelete,
 }: AccountCardProps) {
@@ -61,6 +63,11 @@ export function AccountCard({
               <span className="inline-flex shrink-0 items-center rounded-lg bg-[var(--surface-2)] px-2 py-0.5 mono text-[11px] font-medium uppercase tracking-wide text-[var(--ink-muted)] ring-1 ring-[var(--line)]">
                 {cur}
               </span>
+              {account.sharedWithHousehold ? (
+                <span className="inline-flex shrink-0 items-center rounded-lg bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200">
+                  {sharedBadgeLabel ?? "Семья"}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
