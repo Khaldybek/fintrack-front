@@ -183,6 +183,8 @@ export interface Account {
   name: string;
   currency: string;
   balance: AccountBalance;
+  /** Family: счёт виден участникам household */
+  sharedWithHousehold?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -192,11 +194,13 @@ export interface CreateAccountBody {
   currency?: string;
   /** Начальный баланс: KZT/RUB — целые единицы; USD/EUR — центы (100.50 → 10050) */
   balanceMinor?: number;
+  sharedWithHousehold?: boolean;
 }
 
 export interface UpdateAccountBody {
   name?: string;
   currency?: string;
+  sharedWithHousehold?: boolean;
 }
 
 export interface DeleteAccountResponse {
@@ -1012,10 +1016,124 @@ export interface HouseholdMember {
 export interface Household {
   id: string;
   name: string;
-  members: HouseholdMember[];
-  /** Иногда приходит в GET /v1/household (синхронно с overview) */
+  members?: HouseholdMember[];
+  pendingInvites?: HouseholdPendingInvite[];
+  membersLimit?: number;
+  membersCount?: number;
+  pendingCount?: number;
+  features?: HouseholdFeatures;
+  /** camelCase от бэка */
+  myRole?: HouseholdMemberRole;
+  /** snake_case fallback */
   my_role?: HouseholdMemberRole;
   members_count?: number;
+}
+
+export interface HouseholdFeatures {
+  canInvite: boolean;
+  canManageBudgets: boolean;
+}
+
+export interface HouseholdPendingInvite {
+  id: string;
+  email: string;
+  role: HouseholdMemberRole;
+  expiresAt: string;
+}
+
+export interface HouseholdInvitePreview {
+  householdName: string;
+  email: string;
+  role: HouseholdMemberRole;
+  expiresAt: string;
+  /** snake_case fallback */
+  household_name?: string;
+  expires_at?: string;
+}
+
+export interface AcceptHouseholdInviteBody {
+  token: string;
+}
+
+export interface HouseholdOwnerRef {
+  userId: string;
+  name: string | null;
+  email?: string;
+}
+
+export interface HouseholdSharedAccount {
+  id: string;
+  name: string;
+  currency: string;
+  balance: AccountBalance;
+  owner: HouseholdOwnerRef;
+  sharedWithHousehold: boolean;
+}
+
+export interface HouseholdTransactionOwner {
+  userId: string;
+  name: string | null;
+}
+
+export interface HouseholdTransaction {
+  id: string;
+  accountId: string;
+  categoryId: string;
+  category: TransactionCategoryRef;
+  account: TransactionAccountRef;
+  amount: MoneyDto | string;
+  amount_minor: number;
+  currency: string;
+  date: string;
+  memo: string | null;
+  createdAt: string;
+  owner: HouseholdTransactionOwner;
+}
+
+export interface GetHouseholdTransactionsQuery {
+  dateFrom?: string;
+  dateTo?: string;
+  accountId?: string;
+  memberUserId?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetHouseholdTransactionsResponse {
+  items: HouseholdTransaction[];
+  total: number;
+}
+
+export interface HouseholdBudget {
+  id: string;
+  name: string;
+  categoryName: string;
+  limitMinor: number;
+  limit_minor?: number;
+  spentMinor?: number;
+  spent_minor?: number;
+  spent: MoneyDto | string | number;
+  currency: string;
+  progress_percent?: number;
+  progressPercent?: number;
+}
+
+export interface CreateHouseholdBudgetBody {
+  name: string;
+  categoryName: string;
+  limitMinor: number;
+  currency?: string;
+}
+
+export interface UpdateHouseholdBudgetBody {
+  name?: string;
+  categoryName?: string;
+  limitMinor?: number;
+  currency?: string;
+}
+
+export interface DeleteHouseholdBudgetResponse {
+  success: true;
 }
 
 export interface CreateHouseholdBody {

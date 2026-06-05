@@ -241,8 +241,11 @@ export default function FamilyPage() {
     }
   };
 
-  const currentMember = household?.members.find((m) => m.userId === user?.id);
+  const members = household?.members ?? [];
+  const currentMember = members.find((m) => m.userId === user?.id);
   const isOwner = currentMember?.role === "owner";
+  const canInvite =
+    currentMember?.role === "owner" || currentMember?.role === "member";
   const myRoleFromOverview = overview?.household.my_role;
   const displayRole = myRoleFromOverview ?? currentMember?.role;
 
@@ -256,7 +259,7 @@ export default function FamilyPage() {
         title="Семейный режим"
         subtitle="Совместный бюджет, роли доступа и прозрачность общих расходов."
         actionAs={
-          household && isOwner ? (
+          household && canInvite ? (
             <button className="action-btn" type="button" onClick={() => { setInviteOpen(true); setInviteError(null); setInviteSuccess(false); }}>
               + Пригласить
             </button>
@@ -311,7 +314,7 @@ export default function FamilyPage() {
                   <div>
                     <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{household.name}</h2>
                     <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                      {overview?.household.members_count ?? household.members.length} участников
+                      {overview?.household.members_count ?? members.length} участников
                       {overview?.period && (
                         <span className="ml-2">
                           · {formatPeriodLabel(overview.period.dateFrom, overview.period.dateTo)}
@@ -385,7 +388,7 @@ export default function FamilyPage() {
                 {roleError && <div className="alert alert-warn mt-3">{roleError}</div>}
 
                 <div className="mt-4 space-y-2">
-                  {household.members.map((member) => {
+                  {members.map((member) => {
                     const isMe = member.userId === user?.id;
                     const isEditing = roleEditId === member.id;
 

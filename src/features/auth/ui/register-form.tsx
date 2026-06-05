@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import type { ApiError } from "@/shared/api";
@@ -14,9 +15,12 @@ import { AuthShell } from "@/shared/ui";
 import { TelegramOauthHint } from "./telegram-oauth-hint";
 
 export function RegisterForm() {
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo") ?? undefined;
+  const emailFromQuery = searchParams.get("email") ?? "";
   const { setSession } = useAuth();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(emailFromQuery);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [featureHint, setFeatureHint] = useState<string | null>(null);
@@ -34,7 +38,8 @@ export function RegisterForm() {
         name: name.trim() || undefined,
       });
       setSession(getAccessTokenFromResponse(res), res.user);
-      window.location.href = ROUTES.home;
+      window.location.href =
+        returnTo && returnTo.startsWith("/") ? returnTo : ROUTES.home;
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 403 && apiErr.upgradeHint) {

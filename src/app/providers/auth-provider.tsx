@@ -30,7 +30,7 @@ type AuthState = {
 };
 
 type AuthContextValue = AuthState & {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, returnTo?: string) => Promise<void>;
   logout: () => Promise<void>;
   setSession: (accessToken: string, user: ApiUser) => void;
   clearSession: () => void;
@@ -69,11 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, returnTo?: string) => {
       const res = await apiLogin({ email, password });
       const token = getAccessTokenFromResponse(res);
       setSession(token, res.user);
-      router.push(ROUTES.home);
+      router.push(returnTo && returnTo.startsWith("/") ? returnTo : ROUTES.home);
     },
     [router, setSession],
   );

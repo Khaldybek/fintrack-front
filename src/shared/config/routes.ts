@@ -27,4 +27,5 @@ export const ROUTES = {
   authCallback: "/auth/callback",
   onboarding: "/onboarding",
   categories: "/categories",
+  householdAccept: "/household/accept",
 } as const;

@@ -8,6 +8,7 @@ import type {
   BillingCheckoutConfirmBody,
   BillingCheckoutConfirmResponse,
   BillingCheckoutSession,
+  BillingInvoice,
   BillingInvoicesResponse,
   BillingPlansResponse,
   PlanResponse,
@@ -55,11 +56,26 @@ export async function cancelBillingSubscription(): Promise<BillingCancelResponse
   });
 }
 
+function normalizeBillingInvoices(raw: unknown): BillingInvoice[] {
+  if (Array.isArray(raw)) return raw as BillingInvoice[];
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.invoices)) return obj.invoices as BillingInvoice[];
+    if (Array.isArray(obj.items)) return obj.items as BillingInvoice[];
+    if (obj.data && typeof obj.data === "object") {
+      const data = obj.data as Record<string, unknown>;
+      if (Array.isArray(data.invoices)) return data.invoices as BillingInvoice[];
+    }
+  }
+  return [];
+}
+
 /** GET /v1/billing/invoices — история платежей */
 export async function getBillingInvoices(
   limit = 20,
 ): Promise<BillingInvoicesResponse> {
-  return apiClient<BillingInvoicesResponse>(
+  const raw = await apiClient<unknown>(
     `/billing/invoices?limit=${encodeURIComponent(String(limit))}`,
   );
+  return { invoices: normalizeBillingInvoices(raw) };
 }

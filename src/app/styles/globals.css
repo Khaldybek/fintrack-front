@@ -249,6 +249,42 @@ nav {
   color: #fff;
 }
 
+.locale-switcher {
+  display: inline-flex;
+  gap: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  padding: 0.2rem;
+}
+
+.locale-switcher-btn {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.38rem 0.62rem;
+  transition: 160ms ease;
+  white-space: nowrap;
+}
+
+.locale-switcher-btn.compact {
+  font-size: 0.72rem;
+  padding: 0.32rem 0.5rem;
+}
+
+.locale-switcher-btn:hover {
+  background: var(--surface-3);
+  color: var(--ink-strong);
+}
+
+.locale-switcher-btn.active {
+  background: #0f172a;
+  color: #fff;
+}
+
 .filter-chip {
   border: 1px solid var(--line);
   border-radius: 10px;

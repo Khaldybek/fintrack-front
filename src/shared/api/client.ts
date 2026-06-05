@@ -104,7 +104,8 @@ export async function apiClient<T>(
       if (typeof window !== "undefined" && err instanceof ApiError && err.status === 401) {
         const pathname = window.location.pathname;
         const isAuthPage = pathname === ROUTES.login || pathname === ROUTES.register ||
-          pathname === ROUTES.forgotPassword || pathname === ROUTES.resetPassword || pathname.startsWith("/auth/");
+          pathname === ROUTES.forgotPassword || pathname === ROUTES.resetPassword ||
+          pathname.startsWith("/auth/") || pathname.startsWith("/household/accept");
         if (!isAuthPage) window.location.href = ROUTES.login;
       }
       throw err;
@@ -180,7 +181,8 @@ export async function apiClientRaw(
       if (typeof window !== "undefined" && err instanceof ApiError && err.status === 401) {
         const pathname = window.location.pathname;
         const isAuthPage = pathname === ROUTES.login || pathname === ROUTES.register ||
-          pathname === ROUTES.forgotPassword || pathname === ROUTES.resetPassword || pathname.startsWith("/auth/");
+          pathname === ROUTES.forgotPassword || pathname === ROUTES.resetPassword ||
+          pathname.startsWith("/auth/") || pathname.startsWith("/household/accept");
         if (!isAuthPage) window.location.href = ROUTES.login;
       }
       throw err;

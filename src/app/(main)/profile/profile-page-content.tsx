@@ -31,7 +31,7 @@ const localeLabel: Record<string, string> = {
 };
 
 export function ProfilePageContent() {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const { logout } = useAuth();
   const { plan, refreshPlan, isPaid } = usePlan();
   const { refresh: refreshAccountsNav } = useAccountsNav();
@@ -90,7 +90,9 @@ export function ProfilePageContent() {
     }
     setInvoicesLoading(true);
     getBillingInvoices(20)
-      .then((res) => setInvoices(res.invoices ?? []))
+      .then((res) =>
+        setInvoices(Array.isArray(res.invoices) ? res.invoices : []),
+      )
       .catch(() => setInvoices([]))
       .finally(() => setInvoicesLoading(false));
   }, [isPaid, plan?.plan]);
@@ -116,7 +118,8 @@ export function ProfilePageContent() {
         title={t("profile.title")}
         subtitle={t("profile.subtitle")}
       >
-        <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr]">
+        <ExtraScreensNav />
+        <section className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr]">
           <article className="card p-5 md:p-6">
             <div className="metric-label">{t("common.loading")}</div>
           </article>
@@ -132,7 +135,8 @@ export function ProfilePageContent() {
         title={t("profile.title")}
         subtitle={t("profile.subtitle")}
       >
-        <section className="grid grid-cols-1 gap-5">
+        <ExtraScreensNav />
+        <section className="mt-5 grid grid-cols-1 gap-5">
           <div className="alert alert-warn">{error}</div>
         </section>
       </AppShell>
@@ -169,7 +173,8 @@ export function ProfilePageContent() {
       title={t("profile.title")}
       subtitle={t("profile.subtitle")}
     >
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr]">
+      <ExtraScreensNav />
+      <section className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr]">
         <div className="xl:col-span-2 flex justify-end">
           <button
             type="button"
@@ -187,39 +192,6 @@ export function ProfilePageContent() {
             {loggingOut ? t("profile.loggingOut") : t("profile.logout")}
           </button>
         </div>
-
-        <article className="card p-5 md:p-6 xl:col-span-2">
-          <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
-            {t("profile.interface.title")}
-          </h2>
-          <p className="mt-1 text-sm text-[var(--ink-soft)]">
-            {t("profile.interface.hint")}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                locale === "ru"
-                  ? "border-[var(--accent)] bg-[var(--surface-2)] text-[var(--ink-strong)] ring-2 ring-[var(--accent)]/40"
-                  : "border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-soft)] hover:bg-[var(--surface-3)]"
-              }`}
-              onClick={() => setLocale("ru")}
-            >
-              {t("profile.interface.ru")}
-            </button>
-            <button
-              type="button"
-              className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                locale === "kk"
-                  ? "border-[var(--accent)] bg-[var(--surface-2)] text-[var(--ink-strong)] ring-2 ring-[var(--accent)]/40"
-                  : "border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-soft)] hover:bg-[var(--surface-3)]"
-              }`}
-              onClick={() => setLocale("kk")}
-            >
-              {t("profile.interface.kk")}
-            </button>
-          </div>
-        </article>
 
         <article className="card p-5 md:p-6">
           <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
@@ -402,13 +374,13 @@ export function ProfilePageContent() {
                 <p className="mt-2 text-sm text-[var(--ink-muted)]">
                   {t("common.loading")}
                 </p>
-              ) : invoices.length === 0 ? (
+              ) : !Array.isArray(invoices) || invoices.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--ink-muted)]">
                   {t("billing.noInvoices")}
                 </p>
               ) : (
                 <ul className="mt-3 space-y-2">
-                  {invoices.map((inv) => (
+                  {(Array.isArray(invoices) ? invoices : []).map((inv) => (
                     <li
                       key={inv.id}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
@@ -431,10 +403,6 @@ export function ProfilePageContent() {
             </div>
           ) : null}
         </article>
-
-        <div className="xl:col-span-2">
-          <ExtraScreensNav />
-        </div>
       </section>
 
       {showAddAccount && (

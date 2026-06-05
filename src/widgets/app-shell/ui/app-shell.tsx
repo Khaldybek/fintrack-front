@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { useAccountsNav } from "@/app/(main)/accounts-nav-context";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
+import { LocaleSwitcher } from "@/widgets/locale-switcher";
 
 export type NavKey =
   | "dashboard"
@@ -109,12 +110,15 @@ export function AppShell({
                   {subtitle}
                 </p>
               </div>
-              {actionAs ??
-                (actionLabel ? (
-                  <button className="action-btn" type="button">
-                    {actionLabel}
-                  </button>
-                ) : null)}
+              <div className="flex flex-wrap items-center gap-2">
+                <LocaleSwitcher className="md:hidden" compact />
+                {actionAs ??
+                  (actionLabel ? (
+                    <button className="action-btn" type="button">
+                      {actionLabel}
+                    </button>
+                  ) : null)}
+              </div>
             </div>
 
             <nav className="tablet-nav mt-5 hidden gap-2 md:flex">
@@ -131,6 +135,7 @@ export function AppShell({
                   </Link>
                 );
               })}
+              <LocaleSwitcher className="ml-auto shrink-0" />
             </nav>
           </header>
 

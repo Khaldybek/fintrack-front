@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import type { ApiError } from "@/shared/api";
@@ -12,6 +13,8 @@ import { TelegramOauthHint } from "./telegram-oauth-hint";
 
 export function LoginForm() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo") ?? undefined;
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +28,7 @@ export function LoginForm() {
     setFeatureHint(null);
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, returnTo);
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 403 && apiErr.upgradeHint) {
@@ -103,7 +106,11 @@ export function LoginForm() {
 
       <p className="mt-4 text-sm text-[var(--ink-soft)]">
         {t("auth.login.noAccount")}{" "}
-        <Link className="font-semibold" href={ROUTES.register}>
+        <Link className="font-semibold" href={
+          returnTo
+            ? `${ROUTES.register}?returnTo=${encodeURIComponent(returnTo)}`
+            : ROUTES.register
+        }>
           {t("auth.login.register")}
         </Link>
       </p>
