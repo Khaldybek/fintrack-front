@@ -1,16 +1,26 @@
-import type { PlanFeatures, PlanLimits, PlanResponse, PlanSlug } from "@/shared/api";
+import type { PlanLimits, PlanResponse, PlanSlug } from "@/shared/api";
 
-const PLAN_LABELS: Record<string, string> = {
+type TranslateFn = (path: string) => string;
+
+const PLAN_LABELS_FALLBACK: Record<string, string> = {
   free: "Free",
   pro: "Pro",
-  pro_monthly: "Pro (месяц)",
-  pro_yearly: "Pro (год)",
-  family_monthly: "Family (месяц)",
-  family_yearly: "Family (год)",
+  pro_monthly: "Pro Monthly",
+  pro_yearly: "Pro Yearly",
+  family_monthly: "Family Monthly",
+  family_yearly: "Family Yearly",
 };
 
-export function formatPlanLabel(plan: PlanSlug | string): string {
-  return PLAN_LABELS[plan] ?? String(plan);
+export function formatPlanLabel(
+  plan: PlanSlug | string,
+  t?: TranslateFn,
+): string {
+  if (t) {
+    const path = `plan.labels.${plan}`;
+    const label = t(path);
+    if (label !== path) return label;
+  }
+  return PLAN_LABELS_FALLBACK[plan] ?? String(plan);
 }
 
 const DEFAULT_FREE_LIMITS: PlanLimits = {
@@ -19,16 +29,16 @@ const DEFAULT_FREE_LIMITS: PlanLimits = {
   goals: 1,
 };
 
-const DEFAULT_FEATURES: PlanFeatures = {
+const DEFAULT_FEATURES = {
   dashboardIndex: false,
   forecast: true,
   familyMode: false,
 };
 
 function normalizeFeatures(
-  raw: Partial<PlanFeatures> | undefined,
-  fallback: PlanFeatures,
-): PlanFeatures {
+  raw: Partial<PlanResponse["features"]> | undefined,
+  fallback: typeof DEFAULT_FEATURES,
+): PlanResponse["features"] {
   if (!raw) return fallback;
   return {
     dashboardIndex: Boolean(raw.dashboardIndex),
@@ -58,7 +68,7 @@ export function normalizePlanResponse(data: PlanResponse): PlanResponse {
   const slug = (data.plan ?? "free") as PlanSlug;
   const paid = slug !== "free";
 
-  const subscriptionFeatures: PlanFeatures = paid
+  const subscriptionFeatures = paid
     ? {
         dashboardIndex: true,
         forecast: true,
@@ -95,7 +105,7 @@ export function normalizePlanResponse(data: PlanResponse): PlanResponse {
 }
 
 /** Фичи для гейтинга и «Семейный режим: да/нет» в UI */
-export function getEffectiveFeatures(plan: PlanResponse | null): PlanFeatures {
+export function getEffectiveFeatures(plan: PlanResponse | null): PlanResponse["features"] {
   if (!plan) return DEFAULT_FEATURES;
   return plan.featuresEffective ?? plan.features ?? DEFAULT_FEATURES;
 }
@@ -131,8 +141,11 @@ export function isProPlan(plan: PlanSlug): boolean {
   );
 }
 
-export function formatLimitValue(limit: number | null | undefined): string {
-  if (limit === null) return "безлимит";
+export function formatLimitValue(
+  limit: number | null | undefined,
+  t?: TranslateFn,
+): string {
+  if (limit === null) return t?.("plan.unlimited") ?? "unlimited";
   if (limit === undefined) return "—";
   return String(limit);
 }

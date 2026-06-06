@@ -32,7 +32,7 @@ export function FamilyMembersTab({
   onLeaveClick,
   onRefreshHousehold,
 }: FamilyMembersTabProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const members = household.members ?? [];
   const pendingInvites = household.pendingInvites ?? [];
   const [roleEditId, setRoleEditId] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export function FamilyMembersTab({
                     <p className="mono mt-0.5 text-xs text-[var(--ink-muted)]">
                       {t("family.members.joined").replace(
                         "{date}",
-                        formatJoinedAt(member.joinedAt),
+                        formatJoinedAt(member.joinedAt, locale),
                       )}
                     </p>
                   </div>
@@ -189,13 +189,16 @@ export function FamilyMembersTab({
           </h2>
           <div className="mt-4 space-y-2">
             <div className="alert">
-              <span className="font-medium">{t("family.roles.owner")}</span> — приглашения, роли
+              <span className="font-medium">{t("family.roles.owner")}</span> —{" "}
+              {t("family.members.rightsOwner")}
             </div>
             <div className="alert">
-              <span className="font-medium">{t("family.roles.member")}</span> — траты и цели
+              <span className="font-medium">{t("family.roles.member")}</span> —{" "}
+              {t("family.members.rightsMember")}
             </div>
             <div className="alert">
-              <span className="font-medium">{t("family.roles.viewer")}</span> — только просмотр
+              <span className="font-medium">{t("family.roles.viewer")}</span> —{" "}
+              {t("family.members.rightsViewer")}
             </div>
           </div>
           {getHouseholdMyRole(household) && (

@@ -42,9 +42,9 @@ export function FamilyBudgetsTab({ household, canManage }: FamilyBudgetsTabProps
     setLoading(true);
     getHouseholdBudgets()
       .then(setBudgets)
-      .catch((err) => setError((err as Error)?.message ?? "Error"))
+      .catch((err) => setError((err as Error)?.message ?? t("family.budgets.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (household.id) load();
@@ -72,7 +72,7 @@ export function FamilyBudgetsTab({ household, canManage }: FamilyBudgetsTabProps
     e.preventDefault();
     const limitMinor = parseLimitMinorInput(formLimit);
     if (!formName.trim() || !formCategory.trim() || limitMinor <= 0) {
-      setFormError("Заполните все поля");
+      setFormError(t("family.formFillAll"));
       return;
     }
     setSubmitting(true);
@@ -97,7 +97,7 @@ export function FamilyBudgetsTab({ household, canManage }: FamilyBudgetsTabProps
       }
       load();
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Error");
+      setFormError((err as Error)?.message ?? t("family.budgets.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +111,7 @@ export function FamilyBudgetsTab({ household, canManage }: FamilyBudgetsTabProps
       setDeleteId(null);
       load();
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Error");
+      setFormError((err as Error)?.message ?? t("family.budgets.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -230,7 +230,7 @@ export function FamilyBudgetsTab({ household, canManage }: FamilyBudgetsTabProps
                 <input
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
-                  placeholder="Еда"
+                  placeholder={t("family.budgets.categoryPlaceholder")}
                   required
                 />
               </label>

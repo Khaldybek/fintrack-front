@@ -17,6 +17,7 @@ import {
   suggestCategoryTransaction,
   voiceParseTransaction,
 } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
 
 const RECEIPT_ACCEPT = "image/jpeg,image/png,image/webp";
 const RECEIPT_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -100,9 +101,10 @@ const AddTransactionModalInner = forwardRef<
   AddTransactionModalHandle,
   AddTransactionModalProps
 >(function AddTransactionModal(
-  { triggerLabel = "+ Транзакция", triggerClassName = "fab-add", onSuccess },
+  { triggerLabel, triggerClassName = "fab-add", onSuccess },
   ref,
 ) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [openReceiptPicker, setOpenReceiptPicker] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -209,7 +211,7 @@ const AddTransactionModalInner = forwardRef<
       setLowConfidence(res.confidence < 0.7);
       setStep(2);
     } catch (err) {
-      setVoiceError((err as Error)?.message ?? "Не удалось распознать фразу");
+      setVoiceError((err as Error)?.message ?? t("transactions.add.voiceError"));
     } finally {
       setVoiceLoading(false);
     }
@@ -233,7 +235,7 @@ const AddTransactionModalInner = forwardRef<
       setSuggestResult(res);
     } catch (err) {
       setSuggestError(
-        (err as Error)?.message ?? "Не удалось подсказать категорию",
+        (err as Error)?.message ?? t("transactions.add.suggestError"),
       );
     } finally {
       setSuggestLoading(false);
@@ -257,11 +259,11 @@ const AddTransactionModalInner = forwardRef<
   const handleReceiptOcr = async (file: File) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      setReceiptError("Допустимы только JPEG, PNG или WebP");
+      setReceiptError(t("transactions.add.receiptTypeError"));
       return;
     }
     if (file.size > RECEIPT_MAX_SIZE_BYTES) {
-      setReceiptError("Файл не более 10 МБ");
+      setReceiptError(t("transactions.add.receiptSizeError"));
       return;
     }
     setReceiptError(null);
@@ -279,7 +281,7 @@ const AddTransactionModalInner = forwardRef<
       }
       setStep(2);
     } catch (err) {
-      setReceiptError((err as Error)?.message ?? "Не удалось распознать чек");
+      setReceiptError((err as Error)?.message ?? t("transactions.add.receiptError"));
     } finally {
       setReceiptLoading(false);
       if (receiptInputRef.current) receiptInputRef.current.value = "";
@@ -333,9 +335,9 @@ const AddTransactionModalInner = forwardRef<
       ? hasAccount
         ? null
         : accounts.length === 0
-          ? "Профиль → раздел «Счета» → кнопка «+ Добавить счёт»"
-          : "Выберите счёт выше"
-      : "Вернитесь на шаг 1 и введите сумму");
+          ? t("transactions.add.noAccountHint")
+          : t("transactions.add.selectAccount")
+      : t("transactions.add.enterAmount"));
 
   const handleSubmit = async () => {
     if (!canSubmit || !categoryId || !accountId) return;
@@ -360,7 +362,7 @@ const AddTransactionModalInner = forwardRef<
       closeModal();
     } catch (err) {
       setFormError(
-        (err as Error)?.message ?? "Не удалось сохранить транзакцию",
+        (err as Error)?.message ?? t("transactions.add.saveError"),
       );
     } finally {
       setSubmitting(false);
@@ -370,7 +372,7 @@ const AddTransactionModalInner = forwardRef<
   const modalContent = isOpen && typeof document !== "undefined" && (
     <div className="fixed inset-0 z-[80] flex flex-col items-center justify-end md:justify-center">
       <button
-        aria-label="Закрыть модалку"
+        aria-label={t("transactions.add.closeAria")}
         className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
         onClick={closeModal}
         type="button"
@@ -379,27 +381,27 @@ const AddTransactionModalInner = forwardRef<
       <section className="relative z-10 w-full max-h-[85vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:max-h-[85vh] md:w-[620px] md:rounded-2xl md:p-6 md:my-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="metric-label">Добавить транзакцию</p>
+            <p className="metric-label">{t("transactions.add.title")}</p>
             <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-              3 шага: сумма → категория → счёт
+              {t("transactions.add.steps")}
             </h3>
           </div>
           <button className="tx-inline-btn" onClick={closeModal} type="button">
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
 
         <div className="mb-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
           <p className="mono text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
-            Умный ввод (AI)
+            {t("transactions.add.smartInput")}
           </p>
           <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-            Напишите или продиктуйте фразу, например: 1500 на такси вчера
+            {t("transactions.add.smartInputHint")}
           </p>
           <div className="mt-3 flex gap-2">
             <input
               className="flex-1 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink-strong)] placeholder:text-[var(--ink-muted)]"
-              placeholder="1500 на такси вчера"
+              placeholder={t("transactions.add.smartInputPlaceholder")}
               type="text"
               value={voiceText}
               onChange={(e) => setVoiceText(e.target.value)}
@@ -412,7 +414,7 @@ const AddTransactionModalInner = forwardRef<
               onClick={handleVoiceParse}
               disabled={voiceLoading || loading || !voiceText.trim()}
             >
-              {voiceLoading ? "…" : "Распознать"}
+              {voiceLoading ? "…" : t("transactions.add.recognize")}
             </button>
           </div>
           {voiceError && (
@@ -422,11 +424,10 @@ const AddTransactionModalInner = forwardRef<
 
         <div className="mb-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
           <p className="mono text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
-            Чек по фото (AI)
+            {t("transactions.add.receiptAi")}
           </p>
           <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-            Загрузите фото чека (JPEG, PNG или WebP, до 10 МБ) — подставятся
-            сумма, дата, магазин и категория.
+            {t("transactions.add.receiptAiHint")}
           </p>
           <input
             ref={receiptInputRef}
@@ -444,7 +445,7 @@ const AddTransactionModalInner = forwardRef<
               onClick={() => receiptInputRef.current?.click()}
               disabled={receiptLoading || loading}
             >
-              {receiptLoading ? "Распознаём…" : "Выбрать фото чека"}
+              {receiptLoading ? t("transactions.add.receiptRecognizing") : t("transactions.add.pickReceipt")}
             </button>
           </div>
           {receiptError && (
@@ -454,7 +455,7 @@ const AddTransactionModalInner = forwardRef<
 
         {lowConfidence && (
           <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Проверьте распознанные данные перед сохранением.
+            {t("transactions.add.lowConfidence")}
           </div>
         )}
 
@@ -467,7 +468,7 @@ const AddTransactionModalInner = forwardRef<
               type="button"
             >
               <span>{current}</span>
-              {current === 1 ? "Сумма" : current === 2 ? "Категория" : "Счёт"}
+              {current === 1 ? t("transactions.add.amount") : current === 2 ? t("transactions.add.category") : t("transactions.add.account")}
             </button>
           ))}
         </div>
@@ -476,12 +477,12 @@ const AddTransactionModalInner = forwardRef<
           <div className="space-y-3">
             <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
               <p className="mono text-xs text-[var(--ink-muted)]">
-                Сумма{" "}
+                {t("transactions.add.amount")}{" "}
                 {categoryId
                   ? categories.find((c) => c.id === categoryId)?.type ===
                     "income"
-                    ? "(доход)"
-                    : "(расход)"
+                    ? t("transactions.add.amountIncome")
+                    : t("transactions.add.amountExpense")
                   : ""}
               </p>
               <p className="mono mt-1 text-3xl font-semibold text-[var(--ink-strong)]">
@@ -507,7 +508,7 @@ const AddTransactionModalInner = forwardRef<
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {loading ? (
               <p className="col-span-full text-sm text-[var(--ink-muted)]">
-                Загрузка категорий…
+                {t("transactions.add.loadingCategories")}
               </p>
             ) : (
               categories.map((cat) => (
@@ -531,7 +532,7 @@ const AddTransactionModalInner = forwardRef<
         {step === 3 && (
           <div className="space-y-3">
             <label className="auth-field">
-              <span>Дата операции</span>
+              <span>{t("transactions.add.transactionDate")}</span>
               <input
                 type="date"
                 value={transactionDate}
@@ -541,19 +542,17 @@ const AddTransactionModalInner = forwardRef<
             </label>
             <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
               {categories.find((c) => c.id === categoryId)?.type === "income"
-                ? "Счёт зачисления"
-                : "Счёт списания"}
+                ? t("transactions.add.accountCredit")
+                : t("transactions.add.accountDebit")}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {loading ? (
                 <p className="col-span-full text-sm text-[var(--ink-muted)]">
-                  Загрузка счетов…
+                  {t("transactions.add.loadingAccounts")}
                 </p>
               ) : accounts.length === 0 ? (
                 <p className="col-span-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  Нет добавленных счетов. Откройте <strong>Профиль</strong>{" "}
-                  (внизу экрана) → блок «Счета» → кнопка «+ Добавить счёт».
-                  После добавления счёта кнопка «Сохранить» станет активной.
+                  {t("transactions.add.noAccountsHint")}
                 </p>
               ) : (
                 accounts.map((acc) => (
@@ -573,11 +572,11 @@ const AddTransactionModalInner = forwardRef<
               )}
             </div>
             <label className="auth-field">
-              <span>Комментарий (необязательно)</span>
+              <span>{t("transactions.add.comment")}</span>
               <input
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Например: Yandex*Go Taxi"
+                placeholder={t("transactions.add.commentPlaceholder")}
                 type="text"
                 maxLength={2000}
               />
@@ -585,11 +584,10 @@ const AddTransactionModalInner = forwardRef<
 
             <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
               <p className="mono text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
-                Подсказка категории по описанию (AI)
+                {t("transactions.add.suggestAi")}
               </p>
               <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-                Введите текст операции и нажмите «Подсказать» — категория и
-                мерчант подставятся автоматически.
+                {t("transactions.add.suggestAiHint")}
               </p>
               <div className="mt-3 flex gap-2">
                 <button
@@ -598,7 +596,7 @@ const AddTransactionModalInner = forwardRef<
                   onClick={handleSuggestCategory}
                   disabled={suggestLoading || !comment.trim()}
                 >
-                  {suggestLoading ? "…" : "Подсказать"}
+                  {suggestLoading ? "…" : t("transactions.add.suggest")}
                 </button>
               </div>
               {suggestError && (
@@ -616,7 +614,7 @@ const AddTransactionModalInner = forwardRef<
                   </p>
                   {suggestResult.confidence < 0.7 && (
                     <p className="mt-1 text-xs text-[#92400e]">
-                      Проверьте перед сохранением.
+                      {t("transactions.add.suggestCheck")}
                     </p>
                   )}
                   <div className="mt-2 flex gap-2">
@@ -631,7 +629,7 @@ const AddTransactionModalInner = forwardRef<
                         )
                       }
                     >
-                      Подставить
+                      {t("transactions.add.applySuggest")}
                     </button>
                     <button
                       type="button"
@@ -640,7 +638,7 @@ const AddTransactionModalInner = forwardRef<
                         setSuggestResult(null);
                       }}
                     >
-                      Отмена
+                      {t("common.cancel")}
                     </button>
                   </div>
                 </div>
@@ -665,7 +663,7 @@ const AddTransactionModalInner = forwardRef<
             }
             type="button"
           >
-            Назад
+            {t("transactions.add.back")}
           </button>
           {step < 3 ? (
             <button
@@ -675,7 +673,7 @@ const AddTransactionModalInner = forwardRef<
               }
               type="button"
             >
-              Далее
+              {t("transactions.add.next")}
             </button>
           ) : (
             <button
@@ -689,7 +687,7 @@ const AddTransactionModalInner = forwardRef<
                   : undefined
               }
             >
-              {submitting ? "Сохранение…" : "Сохранить"}
+              {submitting ? t("common.saving") : t("transactions.add.save")}
             </button>
           )}
         </div>
@@ -700,7 +698,7 @@ const AddTransactionModalInner = forwardRef<
   return (
     <>
       <button className={triggerClassName} onClick={openModal} type="button">
-        {triggerLabel}
+        {triggerLabel ?? t("transactions.add.trigger")}
       </button>
       {modalContent && createPortal(modalContent, document.body)}
     </>

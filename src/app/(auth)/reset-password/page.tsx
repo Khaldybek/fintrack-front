@@ -6,10 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AuthShell } from "@/shared/ui";
 import { ROUTES } from "@/shared/config";
 import { resetPassword } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 function ResetPasswordForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token") ?? "";
@@ -24,15 +26,17 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError(null);
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError(`Пароль не менее ${MIN_PASSWORD_LENGTH} символов`);
+      setError(
+        t("auth.resetPassword.minLength").replace("{min}", String(MIN_PASSWORD_LENGTH)),
+      );
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Пароли не совпадают");
+      setError(t("auth.resetPassword.mismatch"));
       return;
     }
     if (!tokenFromUrl) {
-      setError("Нет токена сброса. Перейдите по ссылке из письма.");
+      setError(t("auth.resetPassword.noToken"));
       return;
     }
     setLoading(true);
@@ -41,7 +45,7 @@ function ResetPasswordForm() {
       setSuccess(true);
       setTimeout(() => router.push(ROUTES.login), 2000);
     } catch (err) {
-      setError((err as Error)?.message ?? "Не удалось сменить пароль. Ссылка могла истечь.");
+      setError((err as Error)?.message ?? t("auth.resetPassword.changeError"));
     } finally {
       setLoading(false);
     }
@@ -51,10 +55,10 @@ function ResetPasswordForm() {
     return (
       <div className="space-y-3">
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4 text-sm text-[var(--ink-strong)]">
-          Пароль успешно изменён. Перенаправляем на страницу входа…
+          {t("auth.resetPassword.success")}
         </div>
         <Link className="auth-primary inline-block w-full text-center" href={ROUTES.login}>
-          Войти
+          {t("auth.resetPassword.login")}
         </Link>
       </div>
     );
@@ -63,11 +67,9 @@ function ResetPasswordForm() {
   if (!tokenFromUrl) {
     return (
       <div className="space-y-3">
-        <div className="alert alert-warn">
-          Ссылка для сброса пароля недействительна или отсутствует. Запросите новую ссылку на странице восстановления пароля.
-        </div>
+        <div className="alert alert-warn">{t("auth.resetPassword.invalidLink")}</div>
         <Link className="auth-primary inline-block w-full text-center" href={ROUTES.forgotPassword}>
-          Восстановить пароль
+          {t("auth.resetPassword.requestNew")}
         </Link>
       </div>
     );
@@ -76,7 +78,12 @@ function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <label className="auth-field">
-        <span>Новый пароль (не менее {MIN_PASSWORD_LENGTH} символов)</span>
+        <span>
+          {t("auth.resetPassword.newPassword").replace(
+            "{min}",
+            String(MIN_PASSWORD_LENGTH),
+          )}
+        </span>
         <input
           type="password"
           value={newPassword}
@@ -87,7 +94,7 @@ function ResetPasswordForm() {
         />
       </label>
       <label className="auth-field">
-        <span>Повторите пароль</span>
+        <span>{t("auth.resetPassword.confirmPassword")}</span>
         <input
           type="password"
           value={confirmPassword}
@@ -98,30 +105,28 @@ function ResetPasswordForm() {
         />
       </label>
       {error && <div className="alert alert-warn">{error}</div>}
-      <button
-        className="auth-primary w-full"
-        type="submit"
-        disabled={loading}
-      >
-        {loading ? "Сохранение…" : "Сохранить пароль"}
+      <button className="auth-primary w-full" type="submit" disabled={loading}>
+        {loading ? t("auth.resetPassword.submitting") : t("auth.resetPassword.submit")}
       </button>
     </form>
   );
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
+
   return (
     <AuthShell
-      title="Новый пароль"
-      subtitle="Введите новый пароль для входа в аккаунт"
-      helperText="Перейдите по ссылке из письма и задайте пароль не менее 8 символов."
+      title={t("auth.resetPassword.title")}
+      subtitle={t("auth.resetPassword.subtitle")}
+      helperText={t("auth.resetPassword.helper")}
     >
-      <Suspense fallback={<p className="text-sm text-[var(--ink-muted)]">Загрузка…</p>}>
+      <Suspense fallback={<p className="text-sm text-[var(--ink-muted)]">{t("common.loading")}</p>}>
         <ResetPasswordForm />
       </Suspense>
       <p className="mt-4 text-sm text-[var(--ink-soft)]">
         <Link className="font-semibold text-[var(--ink-strong)]" href={ROUTES.login}>
-          Вернуться ко входу
+          {t("auth.resetPassword.backToLogin")}
         </Link>
       </p>
     </AuthShell>

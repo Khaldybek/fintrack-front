@@ -1,35 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppShell } from "@/widgets/app-shell";
-import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 import { getSecuritySessions, getSecurityEvents } from "@/shared/api";
 import type { SecuritySession, SecurityEvent } from "@/shared/api";
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString("ru-KZ", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function eventLabel(event: SecurityEvent): string {
-  const type = event.type ?? "";
-  if (type.includes("login")) return "Вход в аккаунт";
-  if (type.includes("logout")) return "Выход из аккаунта";
-  if (type.includes("password")) return "Изменение пароля";
-  if (type.includes("session")) return "Действие с сессией";
-  return type || "Событие";
-}
+import { useI18n } from "@/shared/i18n";
+import { formatDateLocale } from "@/shared/lib/format-locale";
+import { AppShell } from "@/widgets/app-shell";
+import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 
 export default function SecurityPage() {
+  const { t, locale } = useI18n();
   const [sessions, setSessions] = useState<SecuritySession[]>([]);
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const formatDate = (iso: string) =>
+    formatDateLocale(iso, locale, {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const eventLabel = (event: SecurityEvent): string => {
+    const type = event.type ?? "";
+    if (type.includes("login")) return t("security.eventLogin");
+    if (type.includes("logout")) return t("security.eventLogout");
+    if (type.includes("password")) return t("security.eventPassword");
+    if (type.includes("session")) return t("security.eventSession");
+    return type || t("security.eventGeneric");
+  };
 
   useEffect(() => {
     Promise.all([
@@ -40,31 +41,31 @@ export default function SecurityPage() {
         setSessions(s ?? []);
         setEvents(e ?? []);
       })
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить данные безопасности"))
+      .catch((err) => setError(err?.message ?? t("security.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   return (
     <AppShell
       active="profile"
-      title="Безопасность"
-      subtitle="Проверка сессий, контроль входов и защита финансовых данных."
+      title={t("security.title")}
+      subtitle={t("security.subtitle")}
     >
       <ExtraScreensNav active="security" compact />
 
       {loading ? (
-        <p className="metric-label">Загрузка…</p>
+        <p className="metric-label">{t("common.loading")}</p>
       ) : error ? (
         <div className="alert alert-warn">{error}</div>
       ) : (
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
           <article className="card p-5 md:p-6">
             <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
-              Активные сессии
+              {t("security.sessions")}
             </h2>
             <div className="mt-4 space-y-2">
               {sessions.length === 0 ? (
-                <p className="text-sm text-[var(--ink-muted)]">Нет активных сессий.</p>
+                <p className="text-sm text-[var(--ink-muted)]">{t("security.noSessions")}</p>
               ) : (
                 sessions.map((item) => (
                   <div
@@ -73,13 +74,15 @@ export default function SecurityPage() {
                   >
                     <div>
                       <p className="font-semibold text-[var(--ink-strong)]">
-                        Сессия
+                        {t("security.session")}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                        Создана: {formatDate(item.createdAt)} · Истекает: {formatDate(item.expiresAt)}
+                        {t("security.sessionCreated").replace("{date}", formatDate(item.createdAt))}
+                        {" · "}
+                        {t("security.sessionExpires").replace("{date}", formatDate(item.expiresAt))}
                       </p>
                     </div>
-                    <span className="budget-pill normal">Активна</span>
+                    <span className="budget-pill normal">{t("security.sessionActive")}</span>
                   </div>
                 ))
               )}
@@ -90,7 +93,7 @@ export default function SecurityPage() {
             {events.length > 0 && (
               <article className="card p-5">
                 <h2 className="text-base font-semibold text-[var(--ink-strong)]">
-                  Последние события
+                  {t("security.events")}
                 </h2>
                 <div className="mt-4 space-y-3 text-sm text-[var(--ink-soft)]">
                   {events.map((e) => (

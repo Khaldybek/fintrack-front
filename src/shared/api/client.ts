@@ -3,6 +3,7 @@
  * Refresh token — в httpOnly cookie (бэкенд). При 401: один общий refresh, повтор запросов.
  */
 import { API_V1, ROUTES } from "@/shared/config";
+import { getStoredLocale, toAcceptLanguage } from "@/shared/i18n/locale-storage";
 import {
   ApiError,
   FeatureGatedError,
@@ -89,6 +90,9 @@ export async function apiClient<T>(
     headers["Content-Type"] = "application/json";
   }
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (typeof window !== "undefined") {
+    headers["Accept-Language"] = toAcceptLanguage(getStoredLocale());
+  }
 
   const res = await fetch(url, {
     ...init,
@@ -170,6 +174,9 @@ export async function apiClientRaw(
     ...(init.headers as Record<string, string>),
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (typeof window !== "undefined") {
+    headers["Accept-Language"] = toAcceptLanguage(getStoredLocale());
+  }
 
   const res = await fetch(url, { ...init, credentials: "include", headers });
 

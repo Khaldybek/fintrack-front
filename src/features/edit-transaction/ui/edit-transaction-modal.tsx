@@ -9,6 +9,7 @@ import {
   suggestCategoryTransaction,
 } from "@/shared/api";
 import type { Transaction, Category, Account, SuggestCategoryResponse } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
 
 export type EditTransactionModalProps = {
   transaction: Transaction;
@@ -29,6 +30,7 @@ export function EditTransactionModal({
   onSuccess,
   onClose,
 }: EditTransactionModalProps) {
+  const { t } = useI18n();
   const { absStr: initAbs, isExpense: initIsExpense } = signedAmountFromMinor(
     transaction.amount_minor,
   );
@@ -77,7 +79,7 @@ export function EditTransactionModal({
       });
       setSuggestResult(res);
     } catch (err) {
-      setSuggestError((err as Error)?.message ?? "Не удалось подсказать категорию");
+      setSuggestError((err as Error)?.message ?? t("transactions.edit.suggestError"));
     } finally {
       setSuggestLoading(false);
     }
@@ -105,7 +107,7 @@ export function EditTransactionModal({
       onSuccess?.(updated);
       onClose();
     } catch (err) {
-      setError((err as Error)?.message ?? "Не удалось обновить транзакцию");
+      setError((err as Error)?.message ?? t("transactions.edit.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +116,7 @@ export function EditTransactionModal({
   const content = typeof document !== "undefined" && (
     <div className="fixed inset-0 z-[80] flex flex-col items-center justify-end md:justify-center">
       <button
-        aria-label="Закрыть"
+        aria-label={t("common.close")}
         className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
         onClick={onClose}
         type="button"
@@ -122,11 +124,11 @@ export function EditTransactionModal({
       <section className="relative z-10 w-full max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:max-h-[85vh] md:w-[520px] md:rounded-2xl md:p-6 md:my-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="metric-label">Редактировать</p>
-            <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Транзакцию</h3>
+            <p className="metric-label">{t("transactions.edit.label")}</p>
+            <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{t("transactions.edit.title")}</h3>
           </div>
           <button className="tx-inline-btn" onClick={onClose} type="button">
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
 
@@ -134,7 +136,7 @@ export function EditTransactionModal({
           {/* Сумма */}
           <div>
             <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-1">
-              Сумма
+              {t("transactions.amount")}
             </p>
             <div className="flex items-center gap-2">
               <div className="flex rounded-xl border border-[var(--line)] overflow-hidden">
@@ -145,7 +147,7 @@ export function EditTransactionModal({
                   onClick={() => setIsExpense(true)}
                   type="button"
                 >
-                  − расход
+                  {t("transactions.edit.expense")}
                 </button>
                 <button
                   className={`px-3 py-2 text-sm font-semibold transition ${
@@ -154,7 +156,7 @@ export function EditTransactionModal({
                   onClick={() => setIsExpense(false)}
                   type="button"
                 >
-                  + доход
+                  {t("transactions.edit.income")}
                 </button>
               </div>
               <input
@@ -171,7 +173,7 @@ export function EditTransactionModal({
 
           {/* Дата */}
           <label className="auth-field">
-            <span>Дата</span>
+            <span>{t("transactions.edit.date")}</span>
             <input
               type="date"
               value={date}
@@ -181,11 +183,11 @@ export function EditTransactionModal({
 
           {/* Категория */}
           {loading ? (
-            <p className="text-sm text-[var(--ink-muted)]">Загрузка категорий…</p>
+            <p className="text-sm text-[var(--ink-muted)]">{t("transactions.edit.loadingCategories")}</p>
           ) : (
             <div>
               <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-2">
-                Категория
+                {t("transactions.edit.category")}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 max-h-36 overflow-y-auto">
                 {categories.map((cat) => (
@@ -210,7 +212,7 @@ export function EditTransactionModal({
           {!loading && (
             <div>
               <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-2">
-                Счёт
+                {t("transactions.edit.account")}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {accounts.map((acc) => (
@@ -233,10 +235,10 @@ export function EditTransactionModal({
 
           {/* Комментарий */}
           <label className="auth-field">
-            <span>Комментарий</span>
+            <span>{t("transactions.edit.comment")}</span>
             <input
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="Например: Yandex*Go Taxi"
+              placeholder={t("transactions.edit.commentPlaceholder")}
               type="text"
               value={memo}
               maxLength={500}
@@ -246,10 +248,10 @@ export function EditTransactionModal({
           {/* Подсказка категории по memo (AI) */}
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
             <p className="mono text-xs font-medium uppercase tracking-wide text-[var(--ink-muted)]">
-              Подсказка категории по описанию (AI)
+              {t("transactions.edit.suggestAi")}
             </p>
             <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-              Введите текст операции и нажмите «Подсказать» — категория и мерчант подставятся автоматически.
+              {t("transactions.edit.suggestAiHint")}
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -258,7 +260,7 @@ export function EditTransactionModal({
                 onClick={handleSuggestCategory}
                 disabled={suggestLoading || !memo.trim()}
               >
-                {suggestLoading ? "…" : "Подсказать"}
+                {suggestLoading ? "…" : t("transactions.edit.suggest")}
               </button>
             </div>
             {suggestError && (
@@ -275,7 +277,7 @@ export function EditTransactionModal({
                   )}
                 </p>
                 {suggestResult.confidence < 0.7 && (
-                  <p className="mt-1 text-xs text-[#92400e]">Проверьте перед сохранением.</p>
+                  <p className="mt-1 text-xs text-[#92400e]">{t("transactions.edit.suggestCheck")}</p>
                 )}
                 <div className="mt-2 flex gap-2">
                   <button
@@ -284,14 +286,14 @@ export function EditTransactionModal({
                     onClick={applySuggestCategory}
                     disabled={!suggestResult.categoryId || !categories.some((c) => c.id === suggestResult!.categoryId)}
                   >
-                    Подставить
+                    {t("transactions.edit.applySuggest")}
                   </button>
                   <button
                     type="button"
                     className="tx-inline-btn h-8 px-3 text-sm"
                     onClick={() => setSuggestResult(null)}
                   >
-                    Отмена
+                    {t("common.cancel")}
                   </button>
                 </div>
               </div>
@@ -303,7 +305,7 @@ export function EditTransactionModal({
 
         <div className="mt-5 flex items-center justify-between gap-2">
           <button className="filter-chip" onClick={onClose} type="button">
-            Отмена
+            {t("common.cancel")}
           </button>
           <button
             className="action-btn"
@@ -311,7 +313,7 @@ export function EditTransactionModal({
             onClick={handleSubmit}
             type="button"
           >
-            {submitting ? "Сохранение…" : "Сохранить"}
+            {submitting ? t("common.saving") : t("common.save")}
           </button>
         </div>
       </section>

@@ -56,7 +56,7 @@ export function EditAccountModal({
       onSuccess?.(updated);
       onClose();
     } catch (err) {
-      setError((err as Error)?.message ?? "Не удалось сохранить");
+      setError((err as Error)?.message ?? t("account.edit.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -65,7 +65,7 @@ export function EditAccountModal({
   const content = typeof document !== "undefined" && (
     <div className="fixed inset-0 z-[80] flex flex-col items-center justify-end md:justify-center">
       <button
-        aria-label="Закрыть"
+        aria-label={t("common.close")}
         className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
         onClick={onClose}
         type="button"
@@ -76,30 +76,30 @@ export function EditAccountModal({
         </div>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="metric-label">Редактирование</p>
+            <p className="metric-label">{t("account.edit.label")}</p>
             <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-              Счёт: {account.name}
+              {t("account.edit.title").replace("{name}", account.name)}
             </h3>
           </div>
           <button className="tx-inline-btn" onClick={onClose} type="button">
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
 
         <div className="space-y-4">
           <label className="auth-field">
-            <span>Название счёта</span>
+            <span>{t("account.edit.name")}</span>
             <input
               autoFocus
               onChange={(e) => setName(e.target.value)}
-              placeholder="Основная карта, Наличные…"
+              placeholder={t("account.edit.namePlaceholder")}
               type="text"
               value={name}
             />
           </label>
           <div>
             <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-1">
-              Валюта
+              {t("common.currency")}
             </p>
             <select
               className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-strong)]"
@@ -114,7 +114,7 @@ export function EditAccountModal({
             </select>
           </div>
           <p className="text-xs text-[var(--ink-muted)]">
-            Баланс при редактировании не меняется.
+            {t("account.edit.balanceNote")}
           </p>
           {canShare && (
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3">
@@ -140,7 +140,7 @@ export function EditAccountModal({
 
         <div className="mt-5 flex items-center justify-between gap-2">
           <button className="filter-chip" onClick={onClose} type="button">
-            Отмена
+            {t("common.cancel")}
           </button>
           <button
             className="action-btn"
@@ -148,7 +148,7 @@ export function EditAccountModal({
             onClick={handleSubmit}
             type="button"
           >
-            {submitting ? "Сохранение…" : "Сохранить"}
+            {submitting ? t("common.saving") : t("account.edit.submit")}
           </button>
         </div>
       </section>

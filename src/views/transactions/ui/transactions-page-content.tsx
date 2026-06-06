@@ -24,11 +24,8 @@ import type {
   TransactionSplit,
 } from "@/shared/api";
 import type { MoneyDto } from "@/shared/api/types";
-
-const MONTH_NAMES = [
-  "янв", "фев", "мар", "апр", "май", "июн",
-  "июл", "авг", "сен", "окт", "ноя", "дек",
-];
+import { useI18n } from "@/shared/i18n";
+import { formatNumberLocale } from "@/shared/lib/format-locale";
 
 /** Локальная дата в формате YYYY-MM-DD (без сдвига в UTC). */
 function toLocalDateString(d: Date): string {
@@ -38,43 +35,61 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function formatDayLabel(dateStr: string, today: string, yesterday: string): string {
+function formatDayLabel(
+  dateStr: string,
+  today: string,
+  yesterday: string,
+  t: (path: string) => string,
+): string {
   const d = dateStr.slice(0, 10);
-  if (d === today) return "Сегодня";
-  if (d === yesterday) return "Вчера";
+  if (d === today) return t("dates.today");
+  if (d === yesterday) return t("dates.yesterday");
   const [, mo, day] = d.split("-").map(Number);
-  return `${day} ${MONTH_NAMES[mo - 1]}`;
+  const monthKey = String(mo).padStart(2, "0");
+  return `${day} ${t(`months.${monthKey}`)}`;
 }
 
-function groupByDay(items: Transaction[], today: string, yesterday: string) {
+function groupByDay(
+  items: Transaction[],
+  today: string,
+  yesterday: string,
+  t: (path: string) => string,
+) {
   const groups: Record<string, Transaction[]> = {};
-  for (const t of items) {
-    const key = t.date.slice(0, 10);
+  for (const tx of items) {
+    const key = tx.date.slice(0, 10);
     if (!groups[key]) groups[key] = [];
-    groups[key].push(t);
+    groups[key].push(tx);
   }
   const keys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
   return keys.map((key) => ({
-    day: formatDayLabel(key, today, yesterday),
+    day: formatDayLabel(key, today, yesterday, t),
     dateKey: key,
     items: groups[key],
   }));
 }
 
-function formatMoneyValue(amount: MoneyDto | string, fallbackMinor?: number): string {
+function formatMoneyValue(
+  amount: MoneyDto | string,
+  fallbackMinor: number | undefined,
+  locale: "ru" | "kk",
+): string {
   if (typeof amount === "object" && amount !== null && "formatted" in amount) {
     return amount.formatted;
   }
   if (typeof amount === "string" && amount) return amount;
   if (fallbackMinor != null) {
-    return `${Math.abs(fallbackMinor).toLocaleString("ru-KZ")} ₸`;
+    return `${formatNumberLocale(Math.abs(fallbackMinor), locale)} ₸`;
   }
   return "—";
 }
 
-function formatTxAmount(t: Transaction): string {
-  const sign = t.amount_minor >= 0 ? "+ " : "− ";
-  const raw = formatMoneyValue(t.amount, t.amount_minor);
+function formatTxAmount(
+  tx: Transaction,
+  locale: "ru" | "kk",
+): string {
+  const sign = tx.amount_minor >= 0 ? "+ " : "− ";
+  const raw = formatMoneyValue(tx.amount, tx.amount_minor, locale);
   const abs = raw.replace(/^[+\-−]\s*/, "").trim();
   return `${sign}${abs.startsWith("₸") ? abs : `₸${abs}`}`;
 }
@@ -92,6 +107,7 @@ function splitPills(splits: TransactionSplit[] | undefined, totalMinor: number):
 type TypeFilter = "all" | "expense" | "income";
 
 export function TransactionsPageContent() {
+  const { t, locale } = useI18n();
   const [items, setItems] = useState<Transaction[]>([]);
   const [total, setTotal] = useState(0);
   const [templates, setTemplates] = useState<TransactionTemplate[]>([]);
@@ -159,9 +175,9 @@ export function TransactionsPageContent() {
         setTemplates(templatesRes ?? []);
         setCategories(categoriesRes?.map((c) => ({ id: c.id, name: c.name })) ?? []);
       })
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить транзакции"))
+      .catch((err) => setError(err?.message ?? t("transactions.loadError")))
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo, searchDebounced, categoryId, defaultDateFrom, defaultDateTo]);
+  }, [dateFrom, dateTo, searchDebounced, categoryId, defaultDateFrom, defaultDateTo, t]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 400);
@@ -179,12 +195,12 @@ export function TransactionsPageContent() {
         ? items.filter((t) => t.amount_minor > 0)
         : items.filter((t) => t.amount_minor < 0);
 
-  const grouped = groupByDay(filteredByType, today, yesterdayStr);
+  const grouped = groupByDay(filteredByType, today, yesterdayStr, t);
 
   const monthLabel = (() => {
     const from = dateFrom || defaultDateFrom;
     const [y, m] = from.split("-").map(Number);
-    return `${MONTH_NAMES[m - 1]} ${y}`;
+    return `${t(`months.${String(m).padStart(2, "0")}`)} ${y}`;
   })();
 
   const handleDelete = async (id: string) => {
@@ -221,13 +237,13 @@ export function TransactionsPageContent() {
   return (
     <AppShell
       active="transactions"
-      title="Транзакции"
-      subtitle="Добавление операции за 3 шага: сумма → категория → счет/комментарий."
-      eyebrow="FinTrack Transactions"
+      title={t("transactions.title")}
+      subtitle={t("transactions.subtitle")}
+      eyebrow={t("transactions.eyebrow")}
       actionAs={
         <AddTransactionModal
           ref={addModalRef}
-          triggerLabel="+ Добавить"
+          triggerLabel={t("transactions.addTrigger")}
           triggerClassName="action-btn"
           onSuccess={load}
         />
@@ -240,10 +256,10 @@ export function TransactionsPageContent() {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto_auto]">
               <label className="tx-search">
                 <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-                  Поиск
+                  {t("transactions.search")}
                 </span>
                 <input
-                  placeholder="Поиск: такси, кофе, подписка"
+                  placeholder={t("transactions.searchPlaceholder")}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -252,7 +268,7 @@ export function TransactionsPageContent() {
 
               <label className="flex flex-col gap-0.5">
                 <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-                  С
+                  {t("common.from")}
                 </span>
                 <input
                   className="filter-chip cursor-pointer"
@@ -264,7 +280,7 @@ export function TransactionsPageContent() {
 
               <label className="flex flex-col gap-0.5">
                 <span className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)]">
-                  По
+                  {t("common.to")}
                 </span>
                 <input
                   className="filter-chip cursor-pointer"
@@ -280,7 +296,7 @@ export function TransactionsPageContent() {
                 onChange={(e) => setCategoryId(e.target.value || null)}
                 style={{ minWidth: "140px" }}
               >
-                <option value="">Категория: Все</option>
+                <option value="">{t("transactions.categoryAll")}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -297,7 +313,7 @@ export function TransactionsPageContent() {
                   type="button"
                   onClick={() => setTypeFilter(f)}
                 >
-                  {f === "all" ? "Все" : f === "expense" ? "Расходы" : "Доходы"}
+                  {f === "all" ? t("common.all") : f === "expense" ? t("transactions.expenses") : t("transactions.income")}
                 </button>
               ))}
               <button
@@ -311,7 +327,7 @@ export function TransactionsPageContent() {
                   setTypeFilter("all");
                 }}
               >
-                Сбросить · {monthLabel}
+                {t("transactions.reset").replace("{month}", monthLabel)}
               </button>
             </div>
           </article>
@@ -320,26 +336,26 @@ export function TransactionsPageContent() {
           <article className="card p-5 md:p-6">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
-                Шаблоны частых операций
+                {t("transactions.templatesTitle")}
               </h2>
               <button
                 className="text-sm font-semibold text-[var(--ink-soft)]"
                 type="button"
                 onClick={() => setShowManageTemplates(true)}
               >
-                Управлять
+                {t("transactions.manage")}
               </button>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {quickTemplates.length === 0 && (
                 <p className="text-sm text-[var(--ink-muted)]">
-                  Нет шаблонов.{" "}
+                  {t("transactions.noTemplates")}{" "}
                   <button
                     className="underline"
                     type="button"
                     onClick={() => setShowManageTemplates(true)}
                   >
-                    Добавить
+                    {t("transactions.addButton")}
                   </button>
                 </p>
               )}
@@ -350,7 +366,7 @@ export function TransactionsPageContent() {
                   type="button"
                   onClick={() => applyTemplate(t)}
                 >
-                  {t.name} · {formatMoneyValue(t.amount, t.amount_minor)}
+                  {t.name} · {formatMoneyValue(t.amount, t.amount_minor, locale)}
                 </button>
               ))}
             </div>
@@ -360,22 +376,22 @@ export function TransactionsPageContent() {
           <article className="card p-5 md:p-6">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[var(--ink-strong)]">
-                История операций
+                {t("transactions.history")}
               </h2>
               <span className="mono text-xs text-[var(--ink-muted)]">
-                {total} операций · по дням
+                {t("transactions.operationsCount").replace("{total}", String(total))}
               </span>
             </div>
 
             {loading ? (
-              <div className="metric-label py-8">Загрузка…</div>
+              <div className="metric-label py-8">{t("common.loading")}</div>
             ) : error ? (
               <div className="alert alert-warn">{error}</div>
             ) : (
               <div className="space-y-5">
                 {grouped.length === 0 ? (
                   <p className="text-sm text-[var(--ink-muted)]">
-                    Нет транзакций за выбранный период.
+                    {t("transactions.empty")}
                   </p>
                 ) : (
                   grouped.map((group) => (
@@ -401,23 +417,23 @@ export function TransactionsPageContent() {
                               </div>
                               <div className="tx-meta">
                                 {splitLabels.length > 0 && (
-                                  <span className="budget-pill neutral">Сплит</span>
+                                  <span className="budget-pill neutral">{t("transactions.split")}</span>
                                 )}
                               </div>
                             </div>
 
                             <div className="tx-inline-edit">
                               <label>
-                                <span>Сумма</span>
+                                <span>{t("transactions.amount")}</span>
                                 <input
-                                  defaultValue={formatTxAmount(item)}
+                                  defaultValue={formatTxAmount(item, locale)}
                                   type="text"
                                   readOnly
                                   className={`mono ${item.amount_minor >= 0 ? "text-emerald-600" : ""}`}
                                 />
                               </label>
                               <label>
-                                <span>Категория</span>
+                                <span>{t("transactions.add.category")}</span>
                                 <button
                                   className="tx-inline-btn"
                                   type="button"
@@ -431,14 +447,14 @@ export function TransactionsPageContent() {
                                 type="button"
                                 onClick={() => setEditingTx(item)}
                               >
-                                Изменить
+                                {t("common.edit")}
                               </button>
                               <button
                                 className="tx-inline-btn"
                                 type="button"
                                 onClick={() => setSplittingTx(item)}
                               >
-                                Разделить
+                                {t("transactions.splitAction")}
                               </button>
                               <button
                                 className="tx-inline-btn danger"
@@ -446,7 +462,7 @@ export function TransactionsPageContent() {
                                 onClick={() => handleDelete(item.id)}
                                 disabled={deletingId === item.id}
                               >
-                                {deletingId === item.id ? "…" : "Удалить"}
+                                {deletingId === item.id ? "…" : t("common.delete")}
                               </button>
                             </div>
 
@@ -461,7 +477,7 @@ export function TransactionsPageContent() {
                             )}
 
                             <p className="swipe-hint">
-                              Swipe влево для удаления (с подтверждением)
+                              {t("transactions.swipeHint")}
                             </p>
                           </div>
                         );
@@ -477,10 +493,10 @@ export function TransactionsPageContent() {
         <aside className="flex flex-col gap-5">
           <article className="card p-5">
             <h2 className="text-base font-semibold text-[var(--ink-strong)]">
-              Быстрое добавление
+              {t("transactions.quickAdd")}
             </h2>
             <p className="mt-3 text-sm text-[var(--ink-soft)]">
-              Кнопка «+ Добавить» в шапке открывает форму: сумма → категория → счёт.
+              {t("transactions.quickAddHint")}
             </p>
             <div className="mt-4 space-y-2">
               <button
@@ -488,27 +504,27 @@ export function TransactionsPageContent() {
                 type="button"
                 onClick={() => addModalRef.current?.openWithReceipt()}
               >
-                Сканировать чек по фото
+                {t("transactions.scanReceipt")}
               </button>
               <button
                 className="tx-side-btn w-full"
                 type="button"
                 onClick={() => importModalRef.current?.open()}
               >
-                Добавить выписку из банка
+                {t("transactions.importStatement")}
               </button>
               <p className="text-xs text-[var(--ink-muted)]">
-                Или нажмите «+ Добавить» и в модалке выберите «Выбрать фото чека».
+                {t("transactions.orAddHint")}
               </p>
             </div>
           </article>
 
           <article className="card p-5">
             <h2 className="text-base font-semibold text-[var(--ink-strong)]">
-              AI-категоризация
+              {t("transactions.aiCategory")}
             </h2>
             <div className="mt-4 space-y-3 text-sm text-[var(--ink-soft)]">
-              <p>Категория подставляется по счёту и истории.</p>
+              <p>{t("transactions.aiCategoryHint")}</p>
             </div>
           </article>
         </aside>

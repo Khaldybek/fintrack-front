@@ -9,11 +9,7 @@ import {
   deleteCategory,
 } from "@/shared/api";
 import type { Category, CategoryType } from "@/shared/api";
-
-const TYPE_LABEL: Record<CategoryType, string> = {
-  expense: "Расходы",
-  income: "Доходы",
-};
+import { useI18n } from "@/shared/i18n";
 
 const DEFAULT_COLORS = [
   "#0f172a", "#1e40af", "#166534", "#92400e",
@@ -36,6 +32,7 @@ type FormState = {
 const emptyForm = (): FormState => ({ name: "", type: "expense", icon: "", color: "" });
 
 export function CategoriesPageContent() {
+  const { t } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +51,9 @@ export function CategoriesPageContent() {
     setLoading(true);
     return getCategories()
       .then(setCategories)
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить категории"))
+      .catch((err) => setError(err?.message ?? t("categories.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,7 +77,7 @@ export function CategoriesPageContent() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    if (!form.name.trim()) { setFormError("Введите название"); return; }
+    if (!form.name.trim()) { setFormError(t("categories.nameRequired")); return; }
     setSubmitting(true);
     try {
       await createCategory({
@@ -92,7 +89,7 @@ export function CategoriesPageContent() {
       await load();
       setModalOpen(false);
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Не удалось создать категорию");
+      setFormError((err as Error)?.message ?? t("categories.createError"));
     } finally {
       setSubmitting(false);
     }
@@ -102,7 +99,7 @@ export function CategoriesPageContent() {
     e.preventDefault();
     if (!editCategory) return;
     setFormError(null);
-    if (!form.name.trim()) { setFormError("Введите название"); return; }
+    if (!form.name.trim()) { setFormError(t("categories.nameRequired")); return; }
     setSubmitting(true);
     try {
       await updateCategory(editCategory.id, {
@@ -114,7 +111,7 @@ export function CategoriesPageContent() {
       await load();
       setEditCategory(null);
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Не удалось сохранить");
+      setFormError((err as Error)?.message ?? t("common.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -136,17 +133,20 @@ export function CategoriesPageContent() {
   const grouped = (type: CategoryType) =>
     categories.filter((c) => c.type === type).sort((a, b) => a.sortOrder - b.sortOrder);
 
+  const typeLabel = (type: CategoryType) =>
+    type === "expense" ? t("categories.expense") : t("categories.income");
+
   if (loading) {
     return (
-      <AppShell active="profile" title="Категории" subtitle="Категории доходов и расходов для транзакций и бюджетов.">
-        <div className="metric-label">Загрузка…</div>
+      <AppShell active="profile" title={t("categories.title")} subtitle={t("categories.subtitle")}>
+        <div className="metric-label">{t("common.loading")}</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell active="profile" title="Категории" subtitle="Категории доходов и расходов для транзакций и бюджетов.">
+      <AppShell active="profile" title={t("categories.title")} subtitle={t("categories.subtitle")}>
         <div className="alert alert-warn">{error}</div>
       </AppShell>
     );
@@ -158,11 +158,11 @@ export function CategoriesPageContent() {
     <>
       <AppShell
         active="profile"
-        title="Категории"
-        subtitle="Категории доходов и расходов для транзакций и бюджетов."
+        title={t("categories.title")}
+        subtitle={t("categories.subtitle")}
         actionAs={
           <button className="action-btn" type="button" onClick={openCreate}>
-            + Добавить
+            {t("categories.add")}
           </button>
         }
       >
@@ -175,7 +175,7 @@ export function CategoriesPageContent() {
               className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${activeTab === t ? "bg-white shadow text-[var(--ink-strong)]" : "text-[var(--ink-muted)] hover:text-[var(--ink-soft)]"}`}
               onClick={() => setActiveTab(t)}
             >
-              {TYPE_LABEL[t]}
+              {typeLabel(t)}
               <span className="ml-1.5 mono text-[10px] opacity-60">{grouped(t).length}</span>
             </button>
           ))}
@@ -185,7 +185,10 @@ export function CategoriesPageContent() {
           {visibleList.length === 0 ? (
             <div className="card p-5 sm:col-span-2 lg:col-span-3">
               <p className="text-sm text-[var(--ink-muted)]">
-                Нет категорий «{TYPE_LABEL[activeTab].toLowerCase()}». Нажмите «+ Добавить», чтобы создать.
+                {t("categories.emptyByType").replace(
+                  "{type}",
+                  typeLabel(activeTab).toLowerCase(),
+                )}
               </p>
             </div>
           ) : (
@@ -208,7 +211,7 @@ export function CategoriesPageContent() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-[var(--ink-strong)]">{cat.name}</p>
                   <p className="mono text-xs text-[var(--ink-muted)]">
-                    #{cat.sortOrder} · {TYPE_LABEL[cat.type]}
+                    #{cat.sortOrder} · {typeLabel(cat.type)}
                   </p>
                 </div>
 
@@ -218,14 +221,14 @@ export function CategoriesPageContent() {
                     className="tx-inline-btn h-8 rounded-lg px-2.5 text-xs"
                     onClick={() => openEdit(cat)}
                   >
-                    Изм.
+                    {t("categories.editShort")}
                   </button>
                   <button
                     type="button"
                     className="tx-inline-btn danger h-8 rounded-lg px-2.5 text-xs"
                     onClick={() => setDeleteConfirmId(cat.id)}
                   >
-                    Удал.
+                    {t("categories.deleteShort")}
                   </button>
                 </div>
               </article>
@@ -238,15 +241,15 @@ export function CategoriesPageContent() {
       {modalOpen && (
         <div className="fixed inset-0 z-[80]">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setModalOpen(false)}
             type="button"
           />
           <section className="absolute bottom-0 left-0 right-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Новая категория</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
+              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{t("categories.createTitle")}</h3>
+              <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>{t("common.close")}</button>
             </div>
             <CategoryForm
               form={form}
@@ -254,7 +257,7 @@ export function CategoriesPageContent() {
               onSubmit={handleCreate}
               submitting={submitting}
               error={formError}
-              submitLabel="Создать"
+              submitLabel={t("common.create")}
               onCancel={() => setModalOpen(false)}
             />
           </section>
@@ -265,7 +268,7 @@ export function CategoriesPageContent() {
       {editCategory && (
         <div className="fixed inset-0 z-[80]">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setEditCategory(null)}
             type="button"
@@ -273,9 +276,9 @@ export function CategoriesPageContent() {
           <section className="absolute bottom-0 left-0 right-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-                Редактировать — {editCategory.name}
+                {t("categories.editWithName").replace("{name}", editCategory.name)}
               </h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setEditCategory(null)}>Закрыть</button>
+              <button className="tx-inline-btn" type="button" onClick={() => setEditCategory(null)}>{t("common.close")}</button>
             </div>
             <CategoryForm
               form={form}
@@ -283,7 +286,7 @@ export function CategoriesPageContent() {
               onSubmit={handleEdit}
               submitting={submitting}
               error={formError}
-              submitLabel="Сохранить"
+              submitLabel={t("common.save")}
               onCancel={() => setEditCategory(null)}
             />
           </section>
@@ -294,26 +297,24 @@ export function CategoriesPageContent() {
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[82]">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setDeleteConfirmId(null)}
             type="button"
           />
           <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
-            <p className="font-medium text-[var(--ink-strong)]">Удалить категорию?</p>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">
-              Транзакции и бюджеты, привязанные к этой категории, сохранятся.
-            </p>
+            <p className="font-medium text-[var(--ink-strong)]">{t("categories.deleteConfirm")}</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">{t("categories.deleteBody")}</p>
             <div className="mt-4 flex gap-2">
               <button
                 className="action-btn flex-1 bg-[#9f1239] hover:bg-[#7f1d1d]"
                 type="button"
                 onClick={() => handleDelete(deleteConfirmId)}
               >
-                Удалить
+                {t("common.delete")}
               </button>
               <button className="tx-inline-btn flex-1" type="button" onClick={() => setDeleteConfirmId(null)}>
-                Отмена
+                {t("common.cancel")}
               </button>
             </div>
           </section>
@@ -334,16 +335,17 @@ type CategoryFormProps = {
 };
 
 function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel, onCancel }: CategoryFormProps) {
+  const { t } = useI18n();
   return (
     <form onSubmit={onSubmit} className="grid gap-3">
       {error && <div className="alert alert-warn">{error}</div>}
 
       <label className="auth-field">
-        <span>Название <span className="text-[#9f1239]">*</span></span>
+        <span>{t("categories.name")} <span className="text-[#9f1239]">*</span></span>
         <input
           value={form.name}
           onChange={(e) => setField("name", e.target.value)}
-          placeholder="Например: Еда, Зарплата"
+          placeholder={t("categories.namePlaceholder")}
           maxLength={100}
           required
           autoComplete="off"
@@ -351,26 +353,26 @@ function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel
       </label>
 
       <label className="auth-field">
-        <span>Тип</span>
+        <span>{t("categories.type")}</span>
         <select value={form.type} onChange={(e) => setField("type", e.target.value as CategoryType)}>
-          <option value="expense">Расходы</option>
-          <option value="income">Доходы</option>
+          <option value="expense">{t("categories.expense")}</option>
+          <option value="income">{t("categories.income")}</option>
         </select>
       </label>
 
       <label className="auth-field">
-        <span>Иконка (эмодзи или текст, до 50 символов)</span>
+        <span>{t("categories.icon")}</span>
         <input
           value={form.icon}
           onChange={(e) => setField("icon", e.target.value)}
-          placeholder="🍕 или Food"
+          placeholder={t("categories.iconPlaceholder")}
           maxLength={50}
           autoComplete="off"
         />
       </label>
 
       <div className="auth-field">
-        <span>Цвет</span>
+        <span>{t("categories.color")}</span>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           {DEFAULT_COLORS.map((c) => (
             <button
@@ -393,7 +395,7 @@ function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel
               onChange={(e) => setField("color", e.target.value)}
               className="h-0 w-0 opacity-0 absolute"
             />
-            <span className="text-xs text-[var(--ink-muted)] underline">свой цвет</span>
+            <span className="text-xs text-[var(--ink-muted)] underline">{t("categories.customColor")}</span>
           </label>
         </div>
         {form.color && (
@@ -405,7 +407,7 @@ function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel
               className="text-xs text-[var(--ink-muted)] underline"
               onClick={() => setField("color", "")}
             >
-              сбросить
+              {t("categories.resetColor")}
             </button>
           </div>
         )}
@@ -414,7 +416,7 @@ function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel
       {/* Превью */}
       {(form.name || form.icon) && (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
-          <p className="mb-2 text-xs text-[var(--ink-muted)]">Превью</p>
+          <p className="mb-2 text-xs text-[var(--ink-muted)]">{t("categories.preview")}</p>
           <div className="flex items-center gap-3">
             <div
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-lg"
@@ -429,8 +431,10 @@ function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel
               )}
             </div>
             <div>
-              <p className="font-semibold text-[var(--ink-strong)]">{form.name || "Название"}</p>
-              <p className="text-xs text-[var(--ink-muted)]">{form.type === "expense" ? "Расходы" : "Доходы"}</p>
+              <p className="font-semibold text-[var(--ink-strong)]">{form.name || t("categories.nameFallback")}</p>
+              <p className="text-xs text-[var(--ink-muted)]">
+                {form.type === "expense" ? t("categories.expense") : t("categories.income")}
+              </p>
             </div>
           </div>
         </div>
@@ -438,9 +442,9 @@ function CategoryForm({ form, setField, onSubmit, submitting, error, submitLabel
 
       <div className="mt-1 flex gap-2">
         <button className="action-btn flex-1" type="submit" disabled={submitting}>
-          {submitting ? "Сохраняем…" : submitLabel}
+          {submitting ? t("common.saving") : submitLabel}
         </button>
-        <button className="tx-inline-btn" type="button" onClick={onCancel}>Отмена</button>
+        <button className="tx-inline-btn" type="button" onClick={onCancel}>{t("common.cancel")}</button>
       </div>
     </form>
   );

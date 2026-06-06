@@ -28,6 +28,7 @@ import {
 import { useI18n } from "@/shared/i18n";
 import { formatMoney, useBodyScrollLock } from "@/shared/lib";
 import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
+import { translateFeatureGatedHint } from "@/shared/lib/translate-severity";
 
 const STATEMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const STATEMENT_ACCEPT =
@@ -56,13 +57,21 @@ function isAllowedStatementFile(file: File): boolean {
 function gatedMessage(
   err: unknown,
   fallback: string,
+  t: (path: string) => string,
 ): { gated: boolean; message: string } {
   if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
+    const code =
+      err instanceof FeatureGatedError
+        ? err.featureCode
+        : (err as { featureCode?: string }).featureCode;
     const hint =
       err instanceof FeatureGatedError
         ? err.upgradeHint
         : (err as { upgradeHint?: string }).upgradeHint;
-    return { gated: true, message: hint ?? fallback };
+    return {
+      gated: true,
+      message: translateFeatureGatedHint(code, hint, t) || fallback,
+    };
   }
   return { gated: false, message: (err as Error)?.message ?? fallback };
 }
@@ -174,6 +183,7 @@ export const ImportBankStatementModal = forwardRef<
       const { gated, message } = gatedMessage(
         err,
         t("statementImport.gated"),
+        t,
       );
       if (gated) {
         setUpgradeMessage(message);
@@ -199,7 +209,7 @@ export const ImportBankStatementModal = forwardRef<
     } catch (err) {
       if (rollback) setPreview(rollback);
       setPatchError(t("statementImport.patchError"));
-      const { gated, message } = gatedMessage(err, t("statementImport.gated"));
+      const { gated, message } = gatedMessage(err, t("statementImport.gated"), t);
       if (gated) {
         setUpgradeMessage(message);
         setUpgradeOpen(true);
@@ -274,6 +284,7 @@ export const ImportBankStatementModal = forwardRef<
       const { gated, message } = gatedMessage(
         err,
         t("statementImport.gated"),
+        t,
       );
       if (gated) {
         setUpgradeMessage(message);

@@ -65,7 +65,7 @@ export function AccountCard({
               </span>
               {account.sharedWithHousehold ? (
                 <span className="inline-flex shrink-0 items-center rounded-lg bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200">
-                  {sharedBadgeLabel ?? "Семья"}
+                  {sharedBadgeLabel}
                 </span>
               ) : null}
             </div>

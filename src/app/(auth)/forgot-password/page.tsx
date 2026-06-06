@@ -6,8 +6,10 @@ import { useAuth } from "@/app/providers/auth-provider";
 import { AuthShell } from "@/shared/ui";
 import { ROUTES } from "@/shared/config";
 import { forgotPassword } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,11 +20,11 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     const value = email.trim();
     if (!value) {
-      setError("Введите email");
+      setError(t("auth.forgotPassword.emailRequired"));
       return;
     }
     if (value.length < 5 || value.length > 255) {
-      setError("Email от 5 до 255 символов");
+      setError(t("auth.forgotPassword.emailLength"));
       return;
     }
     setError(null);
@@ -31,7 +33,7 @@ export default function ForgotPasswordPage() {
       await forgotPassword(value);
       setSent(true);
     } catch (err) {
-      setError((err as Error)?.message ?? "Не удалось отправить запрос. Попробуйте позже.");
+      setError((err as Error)?.message ?? t("auth.forgotPassword.sendError"));
     } finally {
       setLoading(false);
     }
@@ -39,31 +41,31 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title="Забыли пароль?"
-      subtitle="Шаг 1 — запрос ссылки на почту. Введите email, мы отправим ссылку для сброса пароля."
-      helperText="Ссылка действует 1 час. Если email зарегистрирован и у аккаунта есть пароль, на почту придёт письмо со ссылкой на сброс."
+      title={t("auth.forgotPassword.title")}
+      subtitle={t("auth.forgotPassword.subtitle")}
+      helperText={t("auth.forgotPassword.helper")}
     >
       {sent ? (
         <div className="space-y-3">
           <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4 text-sm text-[var(--ink-strong)]">
-            Если этот email зарегистрирован, вы получите письмо со ссылкой для сброса пароля. Проверьте почту (в том числе папку «Спам») и перейдите по ссылке в течение 1 часа.
+            {t("auth.forgotPassword.success")}
           </div>
           <p className="text-sm text-[var(--ink-muted)]">
-            Не пришло письмо?{" "}
+            {t("auth.forgotPassword.resendPrompt")}{" "}
             <button
               type="button"
               className="font-semibold text-[var(--ink-strong)] underline"
               onClick={() => setSent(false)}
             >
-              Отправить запрос снова
-            </button>
-            {" "}(не более 3 раз за 15 минут).
+              {t("auth.forgotPassword.resend")}
+            </button>{" "}
+            {t("auth.forgotPassword.resendLimit")}
           </p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           <label className="auth-field">
-            <span>Email (5–255 символов)</span>
+            <span>{t("auth.forgotPassword.emailLabel")}</span>
             <input
               placeholder="name@email.com"
               type="email"
@@ -75,15 +77,11 @@ export default function ForgotPasswordPage() {
               required
             />
           </label>
-          {error && (
-            <div className="alert alert-warn">{error}</div>
-          )}
-          <button
-            className="auth-primary w-full"
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? "Отправка…" : "Отправить ссылку"}
+          {error && <div className="alert alert-warn">{error}</div>}
+          <button className="auth-primary w-full" type="submit" disabled={loading}>
+            {loading
+              ? t("auth.forgotPassword.submitting")
+              : t("auth.forgotPassword.submit")}
           </button>
         </form>
       )}
@@ -94,14 +92,14 @@ export default function ForgotPasswordPage() {
               className="font-semibold text-[var(--ink-strong)] underline decoration-[var(--line)] underline-offset-2 hover:decoration-[var(--ink-strong)]"
               href={ROUTES.profile}
             >
-              ← Вернуться в профиль
+              {t("auth.forgotPassword.backToProfile")}
             </Link>
           </p>
         )}
         <p>
-          Вспомнили пароль?{" "}
+          {t("auth.forgotPassword.rememberPassword")}{" "}
           <Link className="font-semibold text-[var(--ink-strong)]" href={ROUTES.login}>
-            Вернуться ко входу
+            {t("auth.forgotPassword.backToLogin")}
           </Link>
         </p>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/shared/i18n";
 
 export type ActionInfoModalProps = {
   triggerLabel: string;
@@ -17,9 +18,11 @@ export function ActionInfoModal({
   title,
   description,
   items,
-  confirmLabel = "Понятно",
+  confirmLabel,
 }: ActionInfoModalProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
+  const resolvedConfirm = confirmLabel ?? t("common.gotIt");
 
   return (
     <>
@@ -34,7 +37,7 @@ export function ActionInfoModal({
       {isOpen ? (
         <div className="fixed inset-0 z-[85]">
           <button
-            aria-label="Закрыть окно"
+            aria-label={t("common.closeModal")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setIsOpen(false)}
             type="button"
@@ -67,14 +70,14 @@ export function ActionInfoModal({
                 onClick={() => setIsOpen(false)}
                 type="button"
               >
-                Закрыть
+                {t("common.close")}
               </button>
               <button
                 className="action-btn"
                 onClick={() => setIsOpen(false)}
                 type="button"
               >
-                {confirmLabel}
+                {resolvedConfirm}
               </button>
             </div>
           </section>

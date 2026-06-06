@@ -7,7 +7,10 @@ import { usePlan } from "@/app/providers/plan-provider";
 import { FeatureGatedError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { formatMoney } from "@/shared/lib";
+import { formatNumberLocale } from "@/shared/lib/format-locale";
+import { useI18n } from "@/shared/i18n";
 import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
+import { translateSeverityLabel } from "@/shared/lib/translate-severity";
 import { ActionInfoModal } from "@/shared/ui";
 import { AddTransactionModal } from "@/features/add-transaction";
 import { AppShell } from "@/widgets/app-shell";
@@ -33,11 +36,6 @@ import type {
   DashboardExpenseByDay,
 } from "@/shared/api";
 
-const INDEX_STATUS_LABEL: Record<string, string> = {
-  stable: "Стабильно",
-  attention: "Внимание",
-  risk: "Риск",
-};
 
 const SEVERITY_ICON: Record<string, string> = {
   risk: "🔴",
@@ -70,31 +68,27 @@ function buildDailyBarsFromExpenseByDay(days: DashboardExpenseByDay[]): { id: st
   }));
 }
 
-const MONTH_SHORT: Record<string, string> = {
-  "01": "янв",
-  "02": "фев",
-  "03": "мар",
-  "04": "апр",
-  "05": "май",
-  "06": "июн",
-  "07": "июл",
-  "08": "авг",
-  "09": "сен",
-  "10": "окт",
-  "11": "ноя",
-  "12": "дек",
+const INDEX_STATUS_KEYS: Record<string, string> = {
+  stable: "dashboard.indexStatus.stable",
+  attention: "dashboard.indexStatus.attention",
+  risk: "dashboard.indexStatus.risk",
 };
 
-function formatCashflowMonthLabel(ym: string): string {
+function formatCashflowMonthLabel(
+  ym: string,
+  t: (path: string) => string,
+): string {
   const p = ym.split("-");
   if (p.length >= 2) {
-    const m = MONTH_SHORT[p[1]?.padStart(2, "0") ?? ""];
-    if (m && p[0]) return `${m} ${p[0].slice(2)}`;
+    const monthKey = p[1]?.padStart(2, "0") ?? "";
+    const m = t(`months.${monthKey}`);
+    if (m !== `months.${monthKey}` && p[0]) return `${m} ${p[0].slice(2)}`;
   }
   return ym;
 }
 
 export function DashboardPageContent() {
+  const { t, locale } = useI18n();
   const { isLoading: authLoading, isAuthenticated } = useAuth();
   const { plan } = usePlan();
   const dashboardIndexEnabled = plan?.features?.dashboardIndex ?? false;
@@ -177,7 +171,7 @@ export function DashboardPageContent() {
 
         setCashflowByMonth(chartsMonth?.cashflow_by_month ?? []);
       })
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить дашборд"))
+      .catch((err) => setError(err?.message ?? t("dashboard.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -193,13 +187,13 @@ export function DashboardPageContent() {
     setSalaryError(null);
     const day = parseInt(salaryDay, 10);
     if (!Number.isInteger(day) || day < 1 || day > 31) {
-      setSalaryError("Введите день от 1 до 31");
+      setSalaryError(t("dashboard.salaryDayError"));
       return;
     }
     const amountDigits = salaryAmount.replace(/\s/g, "");
     const amountParsed = amountDigits ? parseInt(amountDigits, 10) : NaN;
     if (amountDigits && (!Number.isFinite(amountParsed) || amountParsed < 1)) {
-      setSalaryError("Введите сумму зарплаты целым числом ₸ (от 1) или оставьте поле пустым");
+      setSalaryError(t("dashboard.salaryAmountError"));
       return;
     }
 
@@ -219,7 +213,7 @@ export function DashboardPageContent() {
       setSalaryAmount("");
       setSalaryModalOpen(false);
     } catch (err) {
-      setSalaryError((err as Error)?.message ?? "Не удалось добавить расписание");
+      setSalaryError((err as Error)?.message ?? t("dashboard.salaryCreateError"));
     } finally {
       setSalarySubmitting(false);
     }
@@ -236,9 +230,9 @@ export function DashboardPageContent() {
 
   if (loading) {
     return (
-      <AppShell active="dashboard" title="Состояние финансов на сегодня" subtitle="Ключевые сигналы собраны на одном экране." eyebrow="FinTrack Dashboard">
+      <AppShell active="dashboard" title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} eyebrow={t("dashboard.eyebrow")}>
         <section className="grid grid-cols-1 gap-5">
-          <div className="metric-label">Загрузка…</div>
+          <div className="metric-label">{t("common.loading")}</div>
         </section>
       </AppShell>
     );
@@ -246,7 +240,7 @@ export function DashboardPageContent() {
 
   if (error) {
     return (
-      <AppShell active="dashboard" title="Состояние финансов на сегодня" subtitle="Ключевые сигналы собраны на одном экране." eyebrow="FinTrack Dashboard">
+      <AppShell active="dashboard" title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} eyebrow={t("dashboard.eyebrow")}>
         <section className="grid grid-cols-1 gap-5">
           <div className="alert alert-warn">{error}</div>
         </section>
@@ -254,12 +248,12 @@ export function DashboardPageContent() {
     );
   }
 
-  const balanceStr = formatMoney(summary?.balance) || (summary ? `${summary.balance_total_minor.toLocaleString("ru-KZ")} ${summary.currency}` : "—");
-  const incomeStr = formatMoney(summary?.income) || (summary ? `${summary.income_minor.toLocaleString("ru-KZ")} ₸` : "—");
-  const expenseStr = formatMoney(summary?.expense) || (summary ? `${summary.expense_minor.toLocaleString("ru-KZ")} ₸` : "—");
+  const balanceStr = formatMoney(summary?.balance) || (summary ? `${formatNumberLocale(summary.balance_total_minor, locale)} ${summary.currency}` : "—");
+  const incomeStr = formatMoney(summary?.income) || (summary ? `${formatNumberLocale(summary.income_minor, locale)} ₸` : "—");
+  const expenseStr = formatMoney(summary?.expense) || (summary ? `${formatNumberLocale(summary.expense_minor, locale)} ₸` : "—");
   const netMinor = (summary?.income_minor ?? 0) - (summary?.expense_minor ?? 0);
-  const netStr = summary ? `${netMinor.toLocaleString("ru-KZ")} ${summary.currency}` : "—";
-  const projectedStr = formatMoney(forecast?.projected_balance) || (forecast ? `${forecast.projected_balance_minor.toLocaleString("ru-KZ")} ${summary?.currency ?? ""}` : "—");
+  const netStr = summary ? `${formatNumberLocale(netMinor, locale)} ${summary.currency}` : "—";
+  const projectedStr = formatMoney(forecast?.projected_balance) || (forecast ? `${formatNumberLocale(forecast.projected_balance_minor, locale)} ${summary?.currency ?? ""}` : "—");
 
   const indexFactors = [
     ...(index?.factors_positive ?? []).map((f) => ({ label: f.label, score: `+${f.score}`, tone: "up" as const })),
@@ -270,9 +264,9 @@ export function DashboardPageContent() {
     <>
       <AppShell
         active="dashboard"
-        title="Состояние финансов на сегодня"
-        subtitle="Ключевые сигналы собраны на одном экране: индекс, прогноз, риски и инсайт дня."
-        eyebrow="FinTrack Dashboard"
+        title={t("dashboard.title")}
+        subtitle={t("dashboard.subtitleFull")}
+        eyebrow={t("dashboard.eyebrow")}
       >
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
           <div className="flex flex-col gap-5">
@@ -281,20 +275,21 @@ export function DashboardPageContent() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {insight != null && (
                 <article className="card metric-card loading-reveal stagger-1">
-                  <p className="metric-label">Финансовая погода</p>
+                  <p className="metric-label">{t("dashboard.weather")}</p>
                   <p className="mt-2 text-lg font-semibold text-[#92400e]">
-                    {SEVERITY_ICON[insight.severity] ?? "💡"} {insight.status}
+                    {SEVERITY_ICON[insight.severity] ?? "💡"}{" "}
+                    {translateSeverityLabel(insight.status, insight.severity, t)}
                   </p>
                   <p className="metric-hint">{insight.text}</p>
                 </article>
               )}
 
               <article className="card metric-card loading-reveal stagger-2">
-                <p className="metric-label">Текущий баланс</p>
+                <p className="metric-label">{t("dashboard.balance")}</p>
                 <p className="mono metric-value">{balanceStr}</p>
                 <p className={`metric-hint ${forecast?.severity === "attention" || forecast?.severity === "risk" ? "warn" : "up"}`}>
                   {forecast != null
-                    ? `До конца месяца ${forecast.days_left} дн. ${forecast.severity === "good" ? "· всё хорошо ✓" : `· ${forecast.explanation}`}`
+                    ? `${t("dashboard.forecastUntilMonth").replace("{days}", String(forecast.days_left))} ${forecast.severity === "good" ? t("dashboard.forecastGood") : `· ${forecast.explanation}`}`
                     : "—"}
                 </p>
                 {forecast?.explanationAi && (
@@ -303,27 +298,27 @@ export function DashboardPageContent() {
               </article>
 
               <article className="card metric-card loading-reveal stagger-3">
-                <p className="metric-label">Доход / расход за месяц</p>
+                <p className="metric-label">{t("dashboard.incomeExpenseMonth")}</p>
                 <p className="mono metric-value">{incomeStr} / {expenseStr}</p>
-                <p className="metric-hint">Остаток: {netStr}</p>
+                <p className="metric-hint">{t("dashboard.remainder").replace("{amount}", netStr)}</p>
               </article>
 
               {!dashboardIndexEnabled || indexGated ? (
                 <article className="card metric-card loading-reveal stagger-4 xl:col-span-2">
-                  <p className="metric-label">Финансовый индекс (0–100)</p>
+                  <p className="metric-label">{t("dashboard.indexScore")}</p>
                   <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
-                    Индекс здоровья доступен на тарифах Pro и Family.
+                    {t("dashboard.indexGated")}
                   </p>
                   <Link className="action-btn mt-4 inline-block" href={ROUTES.pricing}>
-                    Смотреть тарифы
+                    {t("upgrade.viewPlans")}
                   </Link>
                 </article>
               ) : index != null ? (
                 <article className="card metric-card loading-reveal stagger-4 xl:col-span-2">
-                  <p className="metric-label">Финансовый индекс (0–100)</p>
+                  <p className="metric-label">{t("dashboard.indexScore")}</p>
                   <div className="mt-2 flex items-end gap-3">
                     <p className="mono metric-value text-[2.1rem] leading-none">{index.score}</p>
-                    <span className="index-badge">{INDEX_STATUS_LABEL[index.status] ?? index.status}</span>
+                    <span className="index-badge">{t(INDEX_STATUS_KEYS[index.status] ?? index.status)}</span>
                   </div>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {indexFactors.map((factor) => (
@@ -339,7 +334,7 @@ export function DashboardPageContent() {
               ) : null}
 
               <article className="card metric-card loading-reveal">
-                <p className="metric-label">Прогноз до конца месяца</p>
+                <p className="metric-label">{t("dashboard.forecastEndMonth")}</p>
                 <p className="mono metric-value">{projectedStr}</p>
                 {forecast && (
                   <>
@@ -358,8 +353,8 @@ export function DashboardPageContent() {
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1fr]">
               <article className="card loading-reveal p-5 md:p-6">
                 <div className="mb-5 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-[var(--ink-strong)]">График расходов</h2>
-                  <span className="mono text-xs text-[var(--ink-muted)]">Последние 8 дней</span>
+                  <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{t("dashboard.expenseChart")}</h2>
+                  <span className="mono text-xs text-[var(--ink-muted)]">{t("dashboard.last8Days")}</span>
                 </div>
                 {dailyChart.length > 0 ? (
                   <div
@@ -377,31 +372,31 @@ export function DashboardPageContent() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[var(--ink-muted)]">Нет данных о расходах за последние 8 дней.</p>
+                  <p className="text-sm text-[var(--ink-muted)]">{t("dashboard.noExpenseData")}</p>
                 )}
               </article>
 
               {cashflowByMonth.length > 0 && (
                 <article className="card loading-reveal p-5 md:p-6">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Доход и расход по месяцам</h2>
-                    <span className="mono text-xs text-[var(--ink-muted)]">Тренд (cashflow_by_month)</span>
+                    <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{t("dashboard.monthlyChart")}</h2>
+                    <span className="mono text-xs text-[var(--ink-muted)]">{t("dashboard.cashflowTrend")}</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[520px] text-sm">
                       <thead>
                         <tr className="border-b border-[var(--line)] text-left text-[var(--ink-muted)]">
-                          <th className="pb-2 pr-3 font-medium">Месяц</th>
-                          <th className="pb-2 pr-3 font-medium">Доход</th>
-                          <th className="pb-2 pr-3 font-medium">Расход</th>
-                          <th className="pb-2 font-medium">Нетто</th>
+                          <th className="pb-2 pr-3 font-medium">{t("analytics.month")}</th>
+                          <th className="pb-2 pr-3 font-medium">{t("analytics.incomeCol")}</th>
+                          <th className="pb-2 pr-3 font-medium">{t("analytics.expenseCol")}</th>
+                          <th className="pb-2 font-medium">{t("dashboard.netCol")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {cashflowByMonth.map((m) => (
                           <tr key={m.month} className="border-b border-[var(--line)]/60">
                             <td className="py-2.5 pr-3 font-medium text-[var(--ink-strong)]">
-                              {formatCashflowMonthLabel(m.month)}
+                              {formatCashflowMonthLabel(m.month, t)}
                             </td>
                             <td className="mono py-2.5 pr-3 text-[#166534]">
                               {formatMoney(m.income)}
@@ -421,7 +416,7 @@ export function DashboardPageContent() {
               )}
 
               <article className="card loading-reveal p-5 md:p-6">
-                <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Активные предупреждения</h2>
+                <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{t("dashboard.alerts")}</h2>
                 <div className="mt-4 space-y-3">
                   {alerts.length > 0 ? (
                     alerts.slice(0, 3).map((a, i) => (
@@ -436,21 +431,21 @@ export function DashboardPageContent() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-[var(--ink-muted)]">Нет активных предупреждений.</p>
+                    <p className="text-sm text-[var(--ink-muted)]">{t("dashboard.noAlerts")}</p>
                   )}
                 </div>
                 <div className="mt-5">
                   <ActionInfoModal
-                    confirmLabel="Применить сценарий"
-                    description="Сценарии помогают заранее снизить риск кассового разрыва."
+                    confirmLabel={t("dashboard.applyScenario")}
+                    description={t("dashboard.riskScenariosDesc")}
                     items={[
-                      "Мягкий: -10% расходов до зарплаты",
-                      "Умеренный: -15% и перенос 1 крупной покупки",
-                      "Строгий: заморозка non-essential категорий на 4 дня",
+                      t("dashboard.riskScenario1"),
+                      t("dashboard.riskScenario2"),
+                      t("dashboard.riskScenario3"),
                     ]}
-                    title="Сценарии снижения риска"
+                    title={t("dashboard.riskScenarios")}
                     triggerClassName="w-full rounded-xl border border-[var(--line)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-strong)] transition hover:bg-[var(--surface-2)]"
-                    triggerLabel="Открыть сценарии снижения риска"
+                    triggerLabel={t("dashboard.openRiskScenarios")}
                   />
                 </div>
               </article>
@@ -459,13 +454,16 @@ export function DashboardPageContent() {
             {/* Инсайт дня */}
             {insight != null && (
               <article className="card loading-reveal p-5 md:p-6">
-                <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Персонализированный инсайт дня</h2>
+                <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{t("dashboard.dailyInsight")}</h2>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <div className="alert">{insight.text}</div>
                   {insight.status && (
                     <div className={`alert ${insight.severity === "attention" || insight.severity === "risk" ? "alert-warn" : ""}`}>
-                      Статус: {insight.status}.
-                      {insight.severity === "attention" ? " Рекомендуем следить за расходами." : ""}
+                      {t("dashboard.statusLabel").replace(
+                        "{status}",
+                        translateSeverityLabel(insight.status, insight.severity, t),
+                      )}
+                      {insight.severity === "attention" ? t("dashboard.watchSpending") : ""}
                     </div>
                   )}
                 </div>
@@ -476,9 +474,9 @@ export function DashboardPageContent() {
             <article className="card loading-reveal p-5 md:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Расписание зарплат</h2>
+                  <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{t("dashboard.salarySchedule")}</h2>
                   <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-                    День поступления и при желании сумма — для прогноза и доли платежей
+                    {t("dashboard.salaryHint")}
                   </p>
                 </div>
                 <button
@@ -486,26 +484,26 @@ export function DashboardPageContent() {
                   className="action-btn"
                   onClick={() => { setSalaryModalOpen(true); setSalaryError(null); }}
                 >
-                  + Добавить
+                  {t("dashboard.addButton")}
                 </button>
               </div>
 
               {salarySchedules.length === 0 ? (
                 <p className="text-sm text-[var(--ink-muted)]">
-                  Нет расписаний. Укажите дни поступления зарплаты для точного прогноза.
+                  {t("dashboard.noSchedules")}
                 </p>
               ) : (
                 <div className="space-y-2">
                   {salarySchedules.map((s) => (
                     <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] px-4 py-2.5">
                       <div className="min-w-0">
-                        <span className="mono font-semibold text-[var(--ink-strong)]">{s.dayOfMonth} числа</span>
+                        <span className="mono font-semibold text-[var(--ink-strong)]">{t("dashboard.dayOfMonthDisplay").replace("{day}", String(s.dayOfMonth))}</span>
                         {s.label && (
                           <span className="ml-2 text-sm text-[var(--ink-muted)]">— {s.label}</span>
                         )}
                         {s.amountMinor != null && s.amountMinor > 0 && (
                           <p className="mono mt-0.5 text-sm font-medium text-[#166534]">
-                            {s.amountMinor.toLocaleString("ru-KZ")} ₸
+                            {formatNumberLocale(s.amountMinor, locale)} ₸
                           </p>
                         )}
                       </div>
@@ -514,7 +512,7 @@ export function DashboardPageContent() {
                         className="tx-inline-btn danger h-8 rounded-lg px-3 text-xs"
                         onClick={() => handleDeleteSchedule(s.id)}
                       >
-                        Удалить
+                        {t("common.delete")}
                       </button>
                     </div>
                   ))}
@@ -527,8 +525,8 @@ export function DashboardPageContent() {
           <aside className="hidden flex-col gap-5 xl:flex">
             {spendingBars.length > 0 && (
               <article className="card loading-reveal p-5">
-                <h2 className="text-base font-semibold text-[var(--ink-strong)]">Структура расходов</h2>
-                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">Текущий месяц</p>
+                <h2 className="text-base font-semibold text-[var(--ink-strong)]">{t("dashboard.spendingStructure")}</h2>
+                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{t("dashboard.currentMonth")}</p>
                 <div className="mt-4 space-y-4">
                   {spendingBars.map((item) => (
                     <div key={item.categoryId} className="space-y-2">
@@ -559,18 +557,18 @@ export function DashboardPageContent() {
             {/* Резюме прогноза в сайдбаре */}
             {forecast != null && (
               <article className="card loading-reveal p-5">
-                <h2 className="text-base font-semibold text-[var(--ink-strong)]">Прогноз</h2>
+                <h2 className="text-base font-semibold text-[var(--ink-strong)]">{t("dashboard.forecast")}</h2>
                 <div className="mt-3 space-y-2">
                   <div className="metric-row">
-                    <span>Баланс сейчас</span>
+                    <span>{t("dashboard.balanceNow")}</span>
                     <span className="mono">{formatMoney(forecast.balance) || balanceStr}</span>
                   </div>
                   <div className="metric-row">
-                    <span>На конец месяца</span>
+                    <span>{t("dashboard.endOfMonth")}</span>
                     <span className={`mono ${severityTextClass(forecast.severity)}`}>{projectedStr}</span>
                   </div>
                   <div className="metric-row">
-                    <span>Дней осталось</span>
+                    <span>{t("dashboard.daysLeft")}</span>
                     <span className="mono">{forecast.days_left}</span>
                   </div>
                 </div>
@@ -592,20 +590,20 @@ export function DashboardPageContent() {
       {salaryModalOpen && (
         <div className="fixed inset-0 z-[80]">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setSalaryModalOpen(false)}
             type="button"
           />
           <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[400px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Добавить расписание</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setSalaryModalOpen(false)}>Закрыть</button>
+              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{t("dashboard.addSchedule")}</h3>
+              <button className="tx-inline-btn" type="button" onClick={() => setSalaryModalOpen(false)}>{t("common.close")}</button>
             </div>
             <form onSubmit={handleCreateSchedule} className="grid gap-3">
               {salaryError && <div className="alert alert-warn">{salaryError}</div>}
               <label className="auth-field">
-                <span>День месяца (1–31) <span className="text-[#9f1239]">*</span></span>
+                <span>{t("dashboard.dayOfMonth")} <span className="text-[#9f1239]">*</span></span>
                 <input
                   value={salaryDay}
                   onChange={(e) => setSalaryDay(e.target.value.replace(/\D/g, "").slice(0, 2))}
@@ -617,17 +615,17 @@ export function DashboardPageContent() {
                 />
               </label>
               <label className="auth-field">
-                <span>Подпись (необязательно)</span>
+                <span>{t("dashboard.labelOptional")}</span>
                 <input
                   value={salaryLabel}
                   onChange={(e) => setSalaryLabel(e.target.value)}
-                  placeholder="Основная зарплата"
+                  placeholder={t("dashboard.mainSalary")}
                   maxLength={100}
                   autoComplete="off"
                 />
               </label>
               <label className="auth-field">
-                <span>Сумма, ₸ (необязательно)</span>
+                <span>{t("dashboard.amountOptional")}</span>
                 <input
                   value={salaryAmount}
                   onChange={(e) => setSalaryAmount(formatAmountInput(e.target.value))}
@@ -638,13 +636,13 @@ export function DashboardPageContent() {
                 />
               </label>
               <p className="text-xs text-[var(--ink-muted)]">
-                Целое число в тенге. Используется в расчётах доли платежей и прогноза. Можно не указывать.
+                {t("dashboard.amountHint")}
               </p>
               <div className="mt-1 flex gap-2">
                 <button className="action-btn flex-1" type="submit" disabled={salarySubmitting}>
-                  {salarySubmitting ? "Сохраняем…" : "Добавить"}
+                  {salarySubmitting ? t("common.saving") : t("dashboard.addButton")}
                 </button>
-                <button className="tx-inline-btn" type="button" onClick={() => setSalaryModalOpen(false)}>Отмена</button>
+                <button className="tx-inline-btn" type="button" onClick={() => setSalaryModalOpen(false)}>{t("common.cancel")}</button>
               </div>
             </form>
           </section>

@@ -11,10 +11,13 @@ import {
   getGoogleAuthUrl,
 } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
+import { translateFeatureGatedHint } from "@/shared/lib/translate-severity";
 import { AuthShell } from "@/shared/ui";
 import { TelegramOauthHint } from "./telegram-oauth-hint";
 
 export function RegisterForm() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") ?? undefined;
   const emailFromQuery = searchParams.get("email") ?? "";
@@ -43,10 +46,12 @@ export function RegisterForm() {
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 403 && apiErr.upgradeHint) {
-        setFeatureHint(apiErr.upgradeHint);
-        setError("Регистрация ограничена.");
+        setFeatureHint(
+          translateFeatureGatedHint(apiErr.featureCode, apiErr.upgradeHint, t),
+        );
+        setError(t("auth.register.errorRestricted"));
       } else {
-        setError(apiErr.message || "Ошибка регистрации. Попробуйте снова.");
+        setError(apiErr.message || t("auth.register.errorGeneric"));
       }
     } finally {
       setLoading(false);
@@ -54,12 +59,15 @@ export function RegisterForm() {
   }
 
   const googleAuthUrl = getGoogleAuthUrl();
+  const loginHref = returnTo
+    ? `${ROUTES.login}?returnTo=${encodeURIComponent(returnTo)}`
+    : ROUTES.login;
 
   return (
     <AuthShell
-      title="Регистрация"
-      subtitle="Создайте аккаунт и начните вести финансы осознанно"
-      helperText="Первый шаг занимает меньше минуты. После регистрации вы сможете добавить счета и получить стартовый индекс."
+      title={t("auth.register.title")}
+      subtitle={t("auth.register.subtitle")}
+      helperText={t("auth.register.helper")}
     >
       <form action="#" className="space-y-3" onSubmit={handleSubmit}>
         <TelegramOauthHint />
@@ -70,9 +78,9 @@ export function RegisterForm() {
           </div>
         )}
         <label className="auth-field">
-          <span>Имя</span>
+          <span>{t("auth.register.name")}</span>
           <input
-            placeholder="Ваше имя"
+            placeholder={t("auth.register.namePlaceholder")}
             type="text"
             autoComplete="name"
             value={name}
@@ -80,7 +88,7 @@ export function RegisterForm() {
           />
         </label>
         <label className="auth-field">
-          <span>Email</span>
+          <span>{t("auth.register.email")}</span>
           <input
             placeholder="name@email.com"
             type="email"
@@ -91,9 +99,9 @@ export function RegisterForm() {
           />
         </label>
         <label className="auth-field">
-          <span>Пароль</span>
+          <span>{t("auth.register.password")}</span>
           <input
-            placeholder="Минимум 8 символов"
+            placeholder={t("auth.register.passwordPlaceholder")}
             type="password"
             autoComplete="new-password"
             value={password}
@@ -104,22 +112,22 @@ export function RegisterForm() {
 
         <label className="inline-flex items-center gap-2 pt-1 text-sm text-[var(--ink-soft)]">
           <input type="checkbox" />
-          Принимаю условия и политику конфиденциальности
+          {t("auth.register.terms")}
         </label>
 
         <button className="auth-primary" type="submit" disabled={loading}>
-          {loading ? "Создание…" : "Создать аккаунт"}
+          {loading ? t("auth.register.submitting") : t("auth.register.submit")}
         </button>
       </form>
 
       <a className="auth-google mt-3" href={googleAuthUrl}>
-        <span className="mono text-xs">G</span> Продолжить через Google
+        <span className="mono text-xs">G</span> {t("auth.register.google")}
       </a>
 
       <p className="mt-4 text-sm text-[var(--ink-soft)]">
-        Уже есть аккаунт?{" "}
-        <Link className="font-semibold" href={ROUTES.login}>
-          Войти
+        {t("auth.register.hasAccount")}{" "}
+        <Link className="font-semibold" href={loginHref}>
+          {t("auth.register.login")}
         </Link>
       </p>
     </AuthShell>

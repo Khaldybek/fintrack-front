@@ -29,6 +29,7 @@ import type {
 import { hasEffectiveFamilyMode } from "@/shared/lib/plan";
 import { useBodyScrollLock } from "@/shared/lib";
 import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
+import { translateFeatureGatedHint } from "@/shared/lib/translate-severity";
 import { isHouseholdMembersLimitError } from "@/shared/lib/household-errors";
 import { useI18n } from "@/shared/i18n";
 import { AppShell } from "@/widgets/app-shell";
@@ -102,8 +103,11 @@ export function FamilyPageContent() {
     refreshOverview();
   }, [household?.id, refreshOverview]);
 
-  const showUpgrade = (hint?: string) => {
-    setUpgradeMessage(hint ?? t("billing.featureGated.family_mode"));
+  const showUpgrade = (featureCode?: string, hint?: string) => {
+    setUpgradeMessage(
+      translateFeatureGatedHint(featureCode, hint, t) ||
+        t("billing.featureGated.family_mode"),
+    );
     setUpgradeOpen(true);
   };
 
@@ -112,11 +116,15 @@ export function FamilyPageContent() {
       return t("errors.household_members_limit");
     }
     if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
+      const code =
+        err instanceof FeatureGatedError
+          ? err.featureCode
+          : (err as { featureCode?: string }).featureCode;
       const hint =
         err instanceof FeatureGatedError
           ? err.upgradeHint
           : (err as { upgradeHint?: string }).upgradeHint;
-      showUpgrade(hint);
+      showUpgrade(code, hint);
       return null;
     }
     return (err as Error)?.message ?? fallback;
@@ -266,7 +274,7 @@ export function FamilyPageContent() {
                   <input
                     value={createName}
                     onChange={(e) => setCreateName(e.target.value)}
-                    placeholder="Семья Иванова"
+                    placeholder={t("family.createNamePlaceholder")}
                     maxLength={255}
                     required
                     autoComplete="off"

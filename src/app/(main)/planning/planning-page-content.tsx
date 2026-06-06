@@ -4,29 +4,31 @@ import { useState } from "react";
 import { AppShell } from "@/widgets/app-shell";
 import { BudgetsSection } from "@/app/(main)/budgets/budgets-page-content";
 import { GoalsSection } from "@/app/(main)/goals/goals-page-content";
+import { useI18n } from "@/shared/i18n";
 
 type TabId = "budgets" | "goals";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "budgets", label: "Бюджеты" },
-  { id: "goals", label: "Цели" },
-];
-
 export function PlanningPageContent() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("budgets");
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "budgets", label: t("planning.budgets") },
+    { id: "goals", label: t("planning.goals") },
+  ];
 
   return (
     <AppShell
       active="planning"
-      title="Бюджеты и цели"
-      subtitle="Лимиты по категориям и финансовые цели накопления в одном месте."
-      eyebrow="FinTrack Планирование"
+      title={t("planning.title")}
+      subtitle={t("planning.subtitle")}
+      eyebrow={t("planning.eyebrow")}
     >
       <nav
-        aria-label="Разделы планирования"
+        aria-label={t("planning.tabsLabel")}
         className="mb-5 flex flex-wrap gap-2 border-b border-[var(--line)] pb-3"
       >
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"

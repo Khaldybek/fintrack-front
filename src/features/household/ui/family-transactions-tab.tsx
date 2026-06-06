@@ -54,7 +54,7 @@ export function FamilyTransactionsTab() {
           setItems((prev) => (append ? [...prev, ...res.items] : res.items));
           setPage(pageNum);
         })
-        .catch((err) => setError((err as Error)?.message ?? "Error"))
+        .catch((err) => setError((err as Error)?.message ?? t("common.loadError")))
         .finally(() => setLoading(false));
     },
     [dateFrom, dateTo, accountId, memberUserId],

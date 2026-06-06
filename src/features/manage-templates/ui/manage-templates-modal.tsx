@@ -9,21 +9,27 @@ import {
   getCategories,
 } from "@/shared/api";
 import type { TransactionTemplate, Category } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
+import { formatNumberLocale } from "@/shared/lib/format-locale";
 
 export type ManageTemplatesModalProps = {
   onClose: () => void;
   onChanged?: () => void;
 };
 
-function formatTemplateAmount(t: TransactionTemplate): string {
-  if (typeof t.amount === "object" && t.amount !== null && "formatted" in t.amount) {
-    return t.amount.formatted;
+function formatTemplateAmount(
+  tmpl: TransactionTemplate,
+  locale: "ru" | "kk",
+): string {
+  if (typeof tmpl.amount === "object" && tmpl.amount !== null && "formatted" in tmpl.amount) {
+    return tmpl.amount.formatted;
   }
-  if (typeof t.amount === "string" && t.amount) return t.amount;
-  return `${Math.abs(t.amount_minor).toLocaleString("ru-KZ")} ₸`;
+  if (typeof tmpl.amount === "string" && tmpl.amount) return tmpl.amount;
+  return `${formatNumberLocale(Math.abs(tmpl.amount_minor), locale)} ₸`;
 }
 
 export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModalProps) {
+  const { t, locale } = useI18n();
   const [templates, setTemplates] = useState<TransactionTemplate[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +73,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
   const handleCreate = async () => {
     const amountNum = parseFloat(amountRaw.replace(/\s/g, "").replace(",", ".")) || 0;
     if (!name.trim() || !categoryId || !Number.isFinite(amountNum) || amountNum <= 0) {
-      setCreateError("Заполните название, категорию и сумму.");
+      setCreateError(t("templates.fillRequired"));
       return;
     }
     setCreating(true);
@@ -84,7 +90,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
       setShowCreate(false);
       onChanged?.();
     } catch (err) {
-      setCreateError((err as Error)?.message ?? "Не удалось создать шаблон");
+      setCreateError((err as Error)?.message ?? t("templates.createError"));
     } finally {
       setCreating(false);
     }
@@ -93,7 +99,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
   const content = typeof document !== "undefined" && (
     <div className="fixed inset-0 z-[80] flex flex-col items-center justify-end md:justify-center">
       <button
-        aria-label="Закрыть"
+        aria-label={t("common.close")}
         className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
         onClick={onClose}
         type="button"
@@ -101,39 +107,39 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
       <section className="relative z-10 w-full max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:max-h-[85vh] md:w-[520px] md:rounded-2xl md:p-6 md:my-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="metric-label">Управление</p>
-            <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Шаблоны операций</h3>
+            <p className="metric-label">{t("templates.label")}</p>
+            <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{t("templates.title")}</h3>
           </div>
           <button className="tx-inline-btn" onClick={onClose} type="button">
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
 
         {loading ? (
-          <p className="text-sm text-[var(--ink-muted)]">Загрузка…</p>
+          <p className="text-sm text-[var(--ink-muted)]">{t("common.loading")}</p>
         ) : (
           <div className="space-y-2">
             {templates.length === 0 && (
-              <p className="text-sm text-[var(--ink-muted)]">Нет сохранённых шаблонов.</p>
+              <p className="text-sm text-[var(--ink-muted)]">{t("templates.empty")}</p>
             )}
-            {templates.map((t) => (
+            {templates.map((tmpl) => (
               <div
-                key={t.id}
+                key={tmpl.id}
                 className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
               >
                 <div>
-                  <p className="text-sm font-semibold text-[var(--ink-strong)]">{t.name}</p>
+                  <p className="text-sm font-semibold text-[var(--ink-strong)]">{tmpl.name}</p>
                   <p className="text-xs text-[var(--ink-muted)]">
-                    {t.category?.name ?? "—"} · {formatTemplateAmount(t)}
+                    {tmpl.category?.name ?? "—"} · {formatTemplateAmount(tmpl, locale)}
                   </p>
                 </div>
                 <button
                   className="tx-inline-btn danger shrink-0"
-                  disabled={deletingId === t.id}
-                  onClick={() => handleDelete(t.id)}
+                  disabled={deletingId === tmpl.id}
+                  onClick={() => handleDelete(tmpl.id)}
                   type="button"
                 >
-                  {deletingId === t.id ? "…" : "Удалить"}
+                  {deletingId === tmpl.id ? "…" : t("common.delete")}
                 </button>
               </div>
             ))}
@@ -143,19 +149,19 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
         {/* Форма создания */}
         {showCreate ? (
           <div className="mt-4 space-y-3 rounded-xl border border-[var(--line)] p-3">
-            <p className="text-sm font-semibold text-[var(--ink-strong)]">Новый шаблон</p>
+            <p className="text-sm font-semibold text-[var(--ink-strong)]">{t("templates.new")}</p>
             <label className="auth-field">
-              <span>Название</span>
+              <span>{t("templates.name")}</span>
               <input
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Например: Кофе в офис"
+                placeholder={t("templates.namePlaceholder")}
                 type="text"
                 value={name}
               />
             </label>
             <div>
               <p className="mono text-[10px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-1">
-                Категория
+                {t("templates.category")}
               </p>
               <select
                 className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-strong)]"
@@ -171,7 +177,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
             </div>
             <div className="flex items-center gap-2">
               <label className="auth-field flex-1">
-                <span>Сумма (₸)</span>
+                <span>{t("templates.amount")}</span>
                 <input
                   inputMode="numeric"
                   onChange={(e) => setAmountRaw(e.target.value.replace(/\D/g, ""))}
@@ -191,7 +197,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
                 }}
                 type="button"
               >
-                Отмена
+                {t("common.cancel")}
               </button>
               <button
                 className="action-btn"
@@ -199,7 +205,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
                 onClick={handleCreate}
                 type="button"
               >
-                {creating ? "Создание…" : "Создать"}
+                {creating ? t("common.creating") : t("templates.create")}
               </button>
             </div>
           </div>
@@ -209,7 +215,7 @@ export function ManageTemplatesModal({ onClose, onChanged }: ManageTemplatesModa
             onClick={() => setShowCreate(true)}
             type="button"
           >
-            + Добавить шаблон
+            {t("templates.add")}
           </button>
         )}
       </section>

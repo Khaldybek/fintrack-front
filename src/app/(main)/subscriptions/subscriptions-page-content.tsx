@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { Locale } from "@/shared/i18n";
+import { useI18n } from "@/shared/i18n";
 import { formatMoney } from "@/shared/lib";
+import { formatDateLocale, formatNumberLocale } from "@/shared/lib/format-locale";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 import {
@@ -21,12 +24,13 @@ import type {
   Category,
 } from "@/shared/api";
 
-const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-
-function formatNextPayment(dateStr: string): string {
+function formatNextPayment(dateStr: string, locale: Locale): string {
   if (!dateStr) return "—";
-  const d = new Date(dateStr + "T00:00:00");
-  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+  return formatDateLocale(`${dateStr}T00:00:00`, locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function daysUntil(dateStr: string): number {
@@ -41,10 +45,15 @@ function monthlyEquivalentMinor(sub: Subscription): number {
   return Math.round((sub.amount_minor * 30) / sub.intervalDays);
 }
 
-function statusLabel(status: string, days: number): string {
-  if (status === "overdue" || days < 0) return "Просрочена";
-  if (status === "soon" || days <= 3) return `Через ${days} дн.`;
-  return "Активна";
+function statusLabel(
+  status: string,
+  days: number,
+  t: (path: string) => string,
+): string {
+  if (status === "overdue" || days < 0) return t("subscriptions.overdue");
+  if (status === "soon" || days <= 3)
+    return t("subscriptions.dueIn").replace("{days}", String(days));
+  return t("subscriptions.active");
 }
 
 function pillClass(status: string, days: number): string {
@@ -73,6 +82,7 @@ const emptyForm = (): FormState => ({
 });
 
 export function SubscriptionsPageContent() {
+  const { t, locale } = useI18n();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [summary, setSummary] = useState<SubscriptionsSummaryResponse | null>(null);
   const [reminders, setReminders] = useState<SubscriptionReminder[]>([]);
@@ -100,9 +110,9 @@ export function SubscriptionsPageContent() {
         setSummary(sum);
         setReminders(Array.isArray(rem) ? rem : []);
       })
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить подписки"))
+      .catch((err) => setError(err?.message ?? t("subscriptions.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -137,13 +147,13 @@ export function SubscriptionsPageContent() {
     setForm((f) => ({ ...f, [key]: v }));
 
   const validate = (): string | null => {
-    if (!form.name.trim()) return "Введите название подписки";
+    if (!form.name.trim()) return t("subscriptions.validateName");
     const amt = parseFloat(form.amount.replace(/\s/g, ""));
-    if (!Number.isFinite(amt) || amt <= 0) return "Введите корректную сумму";
-    if (!form.nextPaymentDate) return "Укажите дату следующего платежа";
+    if (!Number.isFinite(amt) || amt <= 0) return t("subscriptions.validateAmount");
+    if (!form.nextPaymentDate) return t("subscriptions.validateDate");
     const interval = parseInt(form.intervalDays, 10);
-    if (!Number.isInteger(interval) || interval < 1) return "Интервал должен быть ≥ 1 дня";
-    if (!form.categoryId) return "Выберите категорию";
+    if (!Number.isInteger(interval) || interval < 1) return t("subscriptions.validateInterval");
+    if (!form.categoryId) return t("subscriptions.validateCategory");
     return null;
   };
 
@@ -165,7 +175,7 @@ export function SubscriptionsPageContent() {
       await load();
       setModalOpen(false);
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Не удалось создать подписку");
+      setFormError((err as Error)?.message ?? t("subscriptions.createError"));
     } finally {
       setSubmitting(false);
     }
@@ -190,7 +200,7 @@ export function SubscriptionsPageContent() {
       await load();
       setEditSub(null);
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Не удалось сохранить");
+      setFormError((err as Error)?.message ?? t("subscriptions.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -203,9 +213,9 @@ export function SubscriptionsPageContent() {
   const estimatedMonthlyDisplay =
     summary != null
       ? formatMoney(summary.estimated_monthly_total) ||
-        `${summary.estimated_monthly_total_minor.toLocaleString("ru-KZ")} ${summary.currency}`
+        `${formatNumberLocale(summary.estimated_monthly_total_minor, locale)} ${summary.currency}`
       : totalMonthlyMinor > 0
-        ? `${totalMonthlyMinor.toLocaleString("ru-KZ")} ₸`
+        ? `${formatNumberLocale(totalMonthlyMinor, locale)} ₸`
         : "—";
 
   const handlePay = async (id: string) => {
@@ -235,16 +245,16 @@ export function SubscriptionsPageContent() {
 
   if (loading) {
     return (
-      <AppShell active="profile" title="Подписки и автосписания" subtitle="Контроль регулярных платежей и точек автоматической нагрузки.">
+      <AppShell active="profile" title={t("subscriptions.title")} subtitle={t("subscriptions.subtitle")}>
         <ExtraScreensNav active="subscriptions" compact />
-        <div className="mt-4 metric-label">Загрузка…</div>
+        <div className="mt-4 metric-label">{t("common.loading")}</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell active="profile" title="Подписки и автосписания" subtitle="Контроль регулярных платежей и точек автоматической нагрузки.">
+      <AppShell active="profile" title={t("subscriptions.title")} subtitle={t("subscriptions.subtitle")}>
         <ExtraScreensNav active="subscriptions" compact />
         <div className="mt-4 alert alert-warn">{error}</div>
       </AppShell>
@@ -255,11 +265,11 @@ export function SubscriptionsPageContent() {
     <>
       <AppShell
         active="profile"
-        title="Подписки и автосписания"
-        subtitle="Контроль регулярных платежей и точек автоматической нагрузки."
+        title={t("subscriptions.title")}
+        subtitle={t("subscriptions.subtitle")}
         actionAs={
           <button className="action-btn" type="button" onClick={openCreate}>
-            + Добавить подписку
+            {t("subscriptions.add")}
           </button>
         }
       >
@@ -269,24 +279,25 @@ export function SubscriptionsPageContent() {
           {/* Список подписок */}
           <article className="card p-5 md:p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">Активные списания</h2>
+              <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{t("subscriptions.activeList")}</h2>
               {subscriptions.length > 0 && (
                 <span className="mono text-xs text-[var(--ink-muted)]">
-                  {summary?.subscriptions_count ?? subscriptions.length} подписок
+                  {t("subscriptions.subscriptionsCount").replace(
+                    "{count}",
+                    String(summary?.subscriptions_count ?? subscriptions.length),
+                  )}
                 </span>
               )}
             </div>
 
             {subscriptions.length === 0 ? (
-              <p className="text-sm text-[var(--ink-muted)]">
-                Нет подписок. Нажмите «+ Добавить подписку» для учёта регулярных списаний.
-              </p>
+              <p className="text-sm text-[var(--ink-muted)]">{t("subscriptions.empty")}</p>
             ) : (
               <div className="space-y-2">
                 {subscriptions.map((item) => {
                   const days = daysUntil(item.nextPaymentDate);
                   const monthlyMinor = monthlyEquivalentMinor(item);
-                  const monthlyStr = `${monthlyMinor.toLocaleString("ru-KZ")} ₸/мес`;
+                  const monthlyStr = `${formatNumberLocale(monthlyMinor, locale)} ₸`;
 
                   return (
                     <div key={item.id} className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3">
@@ -301,10 +312,22 @@ export function SubscriptionsPageContent() {
                             )}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-[var(--ink-muted)]">
-                            <span>Следующий: {formatNextPayment(item.nextPaymentDate)}</span>
-                            <span>Каждые {item.intervalDays} дн.</span>
+                            <span>
+                              {t("subscriptions.nextPayment").replace(
+                                "{date}",
+                                formatNextPayment(item.nextPaymentDate, locale),
+                              )}
+                            </span>
+                            <span>
+                              {t("subscriptions.everyDays").replace(
+                                "{days}",
+                                String(item.intervalDays),
+                              )}
+                            </span>
                             {monthlyMinor !== item.amount_minor && (
-                              <span>≈ {monthlyStr}</span>
+                              <span>
+                                {t("subscriptions.monthlyApprox").replace("{amount}", monthlyStr)}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -314,7 +337,7 @@ export function SubscriptionsPageContent() {
                             {formatMoney(item.amount)}
                           </span>
                           <span className={pillClass(item.status, days)}>
-                            {statusLabel(item.status, days)}
+                            {statusLabel(item.status, days, t)}
                           </span>
                         </div>
                       </div>
@@ -325,7 +348,7 @@ export function SubscriptionsPageContent() {
                           className="tx-inline-btn h-7 rounded-lg px-2.5 text-xs"
                           onClick={() => openEdit(item)}
                         >
-                          Редактировать
+                          {t("common.edit")}
                         </button>
                         <button
                           type="button"
@@ -333,18 +356,24 @@ export function SubscriptionsPageContent() {
                           disabled={payingId === item.id || deletingId === item.id}
                           onClick={() => handlePay(item.id)}
                         >
-                          {payingId === item.id ? "…" : "Оплатил"}
+                          {payingId === item.id ? "…" : t("subscriptions.paid")}
                         </button>
                         <button
                           type="button"
                           className="tx-inline-btn danger h-7 rounded-lg px-2.5 text-xs"
                           disabled={deletingId === item.id || payingId === item.id}
                           onClick={() => {
-                            if (typeof window !== "undefined" && !window.confirm(`Удалить «${item.name}»?`)) return;
+                            if (
+                              typeof window !== "undefined" &&
+                              !window.confirm(
+                                t("subscriptions.deleteConfirm").replace("{name}", item.name),
+                              )
+                            )
+                              return;
                             handleDelete(item.id);
                           }}
                         >
-                          {deletingId === item.id ? "…" : "Удалить"}
+                          {deletingId === item.id ? "…" : t("common.delete")}
                         </button>
                       </div>
                     </div>
@@ -357,31 +386,31 @@ export function SubscriptionsPageContent() {
           {/* Сайдбар */}
           <aside className="flex flex-col gap-5">
             <article className="card p-5">
-              <h2 className="text-base font-semibold text-[var(--ink-strong)]">Сводка</h2>
+              <h2 className="text-base font-semibold text-[var(--ink-strong)]">{t("subscriptions.summary")}</h2>
               <div className="mt-4 space-y-3">
                 <div className="metric-row">
-                  <span>Всего подписок</span>
+                  <span>{t("subscriptions.totalCount")}</span>
                   <span className="mono">{summary?.subscriptions_count ?? subscriptions.length}</span>
                 </div>
                 <div className="metric-row">
-                  <span>Оценка в месяц</span>
+                  <span>{t("subscriptions.monthlyEstimate")}</span>
                   <span className="mono">{estimatedMonthlyDisplay}</span>
                 </div>
                 {(summary?.due_soon_count ?? 0) > 0 && (
                   <div className="metric-row">
-                    <span>Скоро к оплате (14 дн.)</span>
+                    <span>{t("subscriptions.dueSoon14")}</span>
                     <span className="mono text-[#b45309]">{summary?.due_soon_count}</span>
                   </div>
                 )}
                 {overdue.length > 0 && (
                   <div className="metric-row">
-                    <span>Просрочено</span>
+                    <span>{t("subscriptions.overdueCount")}</span>
                     <span className="mono text-[#9f1239]">{overdue.length}</span>
                   </div>
                 )}
                 {!summary && upcomingSoon.length > 0 && (
                   <div className="metric-row">
-                    <span>Спишется в ближайшие 3 дня</span>
+                    <span>{t("subscriptions.dueIn3Days")}</span>
                     <span className="mono text-[#b45309]">{upcomingSoon.length}</span>
                   </div>
                 )}
@@ -391,8 +420,8 @@ export function SubscriptionsPageContent() {
             {/* Напоминания с бэкенда (GET /subscriptions/reminders) */}
             {reminders.length > 0 ? (
               <article className="card p-5">
-                <h2 className="text-base font-semibold text-[var(--ink-strong)]">Ближайшие платежи</h2>
-                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">До 14 дней</p>
+                <h2 className="text-base font-semibold text-[var(--ink-strong)]">{t("subscriptions.upcomingPayments")}</h2>
+                <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{t("subscriptions.upcomingHint")}</p>
                 <ul className="mt-3 space-y-2">
                   {reminders.map((s) => (
                     <li
@@ -403,14 +432,20 @@ export function SubscriptionsPageContent() {
                         <span className="font-medium text-[var(--ink-strong)]">{s.name}</span>
                         <span className="mono text-xs text-[var(--ink-muted)]">
                           {s.days_until_payment < 0
-                            ? `просрочено ${Math.abs(s.days_until_payment)} дн.`
+                            ? t("subscriptions.overdueDays").replace(
+                                "{days}",
+                                String(Math.abs(s.days_until_payment)),
+                              )
                             : s.days_until_payment === 0
-                              ? "сегодня"
-                              : `через ${s.days_until_payment} дн.`}
+                              ? t("subscriptions.today")
+                              : t("subscriptions.dueIn").replace(
+                                  "{days}",
+                                  String(s.days_until_payment),
+                                )}
                         </span>
                       </div>
                       <span className="mono text-xs text-[var(--ink-soft)]">
-                        {formatNextPayment(s.nextPaymentDate)} · {formatMoney(s.amount)}
+                        {formatNextPayment(s.nextPaymentDate, locale)} · {formatMoney(s.amount)}
                       </span>
                     </li>
                   ))}
@@ -418,13 +453,13 @@ export function SubscriptionsPageContent() {
               </article>
             ) : upcomingSoon.length > 0 ? (
               <article className="card p-5">
-                <h2 className="text-base font-semibold text-[var(--ink-strong)]">Ближайшие списания</h2>
+                <h2 className="text-base font-semibold text-[var(--ink-strong)]">{t("subscriptions.upcomingCharges")}</h2>
                 <ul className="mt-3 space-y-2">
                   {upcomingSoon.map((s) => (
                     <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-[#b45309]/30 bg-[#fffbeb] px-3 py-2 text-sm">
                       <span className="font-medium text-[var(--ink-strong)]">{s.name}</span>
                       <span className="mono text-xs font-semibold text-[#b45309]">
-                        {formatNextPayment(s.nextPaymentDate)} · {formatMoney(s.amount)}
+                        {formatNextPayment(s.nextPaymentDate, locale)} · {formatMoney(s.amount)}
                       </span>
                     </li>
                   ))}
@@ -433,15 +468,15 @@ export function SubscriptionsPageContent() {
             ) : null}
 
             <article className="card p-5">
-              <h2 className="text-base font-semibold text-[var(--ink-strong)]">Инсайт</h2>
+              <h2 className="text-base font-semibold text-[var(--ink-strong)]">{t("subscriptions.insight")}</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
                 {overdue.length > 0
-                  ? `${overdue.length} подписок просрочено. Обновите дату следующего платежа.`
+                  ? t("subscriptions.insightOverdue").replace("{count}", String(overdue.length))
                   : upcomingSoon.length > 0
-                    ? "Часть подписок спишется в ближайшие 3 дня. Проверьте баланс счёта."
+                    ? t("subscriptions.insightSoon")
                     : subscriptions.length > 0
-                      ? "Регулярные списания под контролем. Пауза неиспользуемых подписок освободит бюджет."
-                      : "Добавьте подписки, чтобы видеть сводку и даты списаний."}
+                      ? t("subscriptions.insightOk")
+                      : t("subscriptions.insightEmpty")}
               </p>
             </article>
           </aside>
@@ -452,15 +487,15 @@ export function SubscriptionsPageContent() {
       {modalOpen && (
         <div className="fixed inset-0 z-[80]">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setModalOpen(false)}
             type="button"
           />
           <section className="absolute bottom-0 left-0 right-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Добавить подписку</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
+              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{t("subscriptions.addTitle")}</h3>
+              <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>{t("common.close")}</button>
             </div>
             <SubscriptionForm
               form={form}
@@ -469,7 +504,7 @@ export function SubscriptionsPageContent() {
               onSubmit={handleCreate}
               submitting={submitting}
               error={formError}
-              submitLabel="Добавить"
+              submitLabel={t("subscriptions.submitAdd")}
               onCancel={() => setModalOpen(false)}
             />
           </section>
@@ -480,15 +515,17 @@ export function SubscriptionsPageContent() {
       {editSub && (
         <div className="fixed inset-0 z-[80]">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setEditSub(null)}
             type="button"
           />
           <section className="absolute bottom-0 left-0 right-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[480px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Редактировать — {editSub.name}</h3>
-              <button className="tx-inline-btn" type="button" onClick={() => setEditSub(null)}>Закрыть</button>
+              <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
+                {t("subscriptions.editTitle").replace("{name}", editSub.name)}
+              </h3>
+              <button className="tx-inline-btn" type="button" onClick={() => setEditSub(null)}>{t("common.close")}</button>
             </div>
             <SubscriptionForm
               form={form}
@@ -497,7 +534,7 @@ export function SubscriptionsPageContent() {
               onSubmit={handleEdit}
               submitting={submitting}
               error={formError}
-              submitLabel="Сохранить"
+              submitLabel={t("common.save")}
               onCancel={() => setEditSub(null)}
             />
             <button
@@ -506,11 +543,17 @@ export function SubscriptionsPageContent() {
               disabled={deletingId === editSub.id || submitting}
               onClick={() => {
                 if (!editSub) return;
-                if (typeof window !== "undefined" && !window.confirm(`Удалить подписку «${editSub.name}»?`)) return;
+                if (
+                  typeof window !== "undefined" &&
+                  !window.confirm(
+                    t("subscriptions.deleteConfirmFull").replace("{name}", editSub.name),
+                  )
+                )
+                  return;
                 handleDelete(editSub.id);
               }}
             >
-              {deletingId === editSub.id ? "Удаляем…" : "Удалить подписку"}
+              {deletingId === editSub.id ? t("subscriptions.deleting") : t("subscriptions.deleteTitle")}
             </button>
           </section>
         </div>
@@ -533,6 +576,7 @@ type SubscriptionFormProps = {
 function SubscriptionForm({
   form, setField, categories, onSubmit, submitting, error, submitLabel, onCancel,
 }: SubscriptionFormProps) {
+  const { t } = useI18n();
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
   return (
@@ -540,11 +584,11 @@ function SubscriptionForm({
       {error && <div className="alert alert-warn">{error}</div>}
 
       <label className="auth-field">
-        <span>Название <span className="text-[#9f1239]">*</span></span>
+        <span>{t("subscriptions.formName")} <span className="text-[#9f1239]">*</span></span>
         <input
           value={form.name}
           onChange={(e) => setField("name", e.target.value)}
-          placeholder="Netflix, Kaspi Gold…"
+          placeholder={t("subscriptions.formNamePlaceholder")}
           maxLength={255}
           required
           autoComplete="off"
@@ -553,11 +597,11 @@ function SubscriptionForm({
 
       <div className="grid grid-cols-2 gap-3">
         <label className="auth-field">
-          <span>Сумма, {form.currency} <span className="text-[#9f1239]">*</span></span>
+          <span>{t("subscriptions.formAmount").replace("{currency}", form.currency)} <span className="text-[#9f1239]">*</span></span>
           <input
             value={form.amount}
             onChange={(e) => setField("amount", e.target.value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, " "))}
-            placeholder="2 990"
+            placeholder={t("subscriptions.formAmountPlaceholder")}
             type="text"
             inputMode="numeric"
             autoComplete="off"
@@ -565,7 +609,7 @@ function SubscriptionForm({
           />
         </label>
         <label className="auth-field">
-          <span>Валюта</span>
+          <span>{t("common.currency")}</span>
           <select value={form.currency} onChange={(e) => setField("currency", e.target.value)}>
             <option value="KZT">KZT</option>
             <option value="USD">USD</option>
@@ -575,7 +619,7 @@ function SubscriptionForm({
       </div>
 
       <label className="auth-field">
-        <span>Дата следующего платежа <span className="text-[#9f1239]">*</span></span>
+        <span>{t("subscriptions.formNextDate")} <span className="text-[#9f1239]">*</span></span>
         <input
           value={form.nextPaymentDate}
           onChange={(e) => setField("nextPaymentDate", e.target.value)}
@@ -585,11 +629,11 @@ function SubscriptionForm({
       </label>
 
       <label className="auth-field">
-        <span>Интервал (дней) <span className="text-[#9f1239]">*</span></span>
+        <span>{t("subscriptions.formInterval")} <span className="text-[#9f1239]">*</span></span>
         <input
           value={form.intervalDays}
           onChange={(e) => setField("intervalDays", e.target.value.replace(/\D/g, ""))}
-          placeholder="30"
+          placeholder={t("subscriptions.formIntervalPlaceholder")}
           type="text"
           inputMode="numeric"
           autoComplete="off"
@@ -598,13 +642,13 @@ function SubscriptionForm({
       </label>
 
       <label className="auth-field">
-        <span>Категория расходов <span className="text-[#9f1239]">*</span></span>
+        <span>{t("subscriptions.formCategory")} <span className="text-[#9f1239]">*</span></span>
         <select
           value={form.categoryId}
           onChange={(e) => setField("categoryId", e.target.value)}
           required
         >
-          <option value="">Выберите категорию</option>
+          <option value="">{t("subscriptions.selectCategory")}</option>
           {expenseCategories.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -613,9 +657,9 @@ function SubscriptionForm({
 
       <div className="mt-1 flex gap-2">
         <button className="action-btn flex-1" type="submit" disabled={submitting}>
-          {submitting ? "Сохраняем…" : submitLabel}
+          {submitting ? t("subscriptions.saving") : submitLabel}
         </button>
-        <button className="tx-inline-btn" type="button" onClick={onCancel}>Отмена</button>
+        <button className="tx-inline-btn" type="button" onClick={onCancel}>{t("common.cancel")}</button>
       </div>
     </form>
   );

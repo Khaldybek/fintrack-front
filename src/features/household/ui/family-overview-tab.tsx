@@ -22,7 +22,7 @@ export function FamilyOverviewTab({
   overviewLoading,
   overviewError,
 }: FamilyOverviewTabProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const members = household.members ?? [];
   const membersCount = household.membersCount ?? members.length;
   const membersLimit = household.membersLimit ?? 5;
@@ -43,7 +43,7 @@ export function FamilyOverviewTab({
               : ""}
             {overview?.period && (
               <span className="ml-2">
-                · {formatPeriodLabel(overview.period.dateFrom, overview.period.dateTo)}
+                · {formatPeriodLabel(overview.period.dateFrom, overview.period.dateTo, locale)}
               </span>
             )}
           </p>

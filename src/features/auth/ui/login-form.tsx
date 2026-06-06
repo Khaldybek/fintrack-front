@@ -8,6 +8,7 @@ import type { ApiError } from "@/shared/api";
 import { getGoogleAuthUrl } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
+import { translateFeatureGatedHint } from "@/shared/lib/translate-severity";
 import { AuthShell } from "@/shared/ui";
 import { TelegramOauthHint } from "./telegram-oauth-hint";
 
@@ -32,7 +33,9 @@ export function LoginForm() {
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr.status === 403 && apiErr.upgradeHint) {
-        setFeatureHint(apiErr.upgradeHint);
+        setFeatureHint(
+          translateFeatureGatedHint(apiErr.featureCode, apiErr.upgradeHint, t),
+        );
         setError(t("auth.login.errorFree"));
       } else {
         setError(apiErr.message || t("auth.login.errorGeneric"));
@@ -72,7 +75,7 @@ export function LoginForm() {
         <label className="auth-field">
           <span>{t("auth.login.password")}</span>
           <input
-            placeholder="Введите пароль"
+            placeholder={t("auth.login.passwordPlaceholder")}
             type="password"
             autoComplete="current-password"
             value={password}

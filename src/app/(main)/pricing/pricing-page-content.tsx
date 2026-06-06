@@ -111,7 +111,7 @@ export function PricingPageContent() {
       <section className="space-y-6">
         {currentPlan && !planLoading ? (
           <div className="alert alert-info">
-            {t("billing.yourPlan")}: {formatPlanLabel(currentPlan.plan)}
+            {t("billing.yourPlan")}: {formatPlanLabel(currentPlan.plan, t)}
           </div>
         ) : null}
         {error ? <div className="alert alert-warn">{error}</div> : null}
@@ -122,7 +122,7 @@ export function PricingPageContent() {
             {pro.length > 0 ? (
               <div>
                 <h2 className="mb-3 text-lg font-semibold text-[var(--ink-strong)]">
-                  Pro
+                  {t("billing.groupPro")}
                 </h2>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {pro.map(renderPlanCard)}
@@ -132,7 +132,7 @@ export function PricingPageContent() {
             {family.length > 0 ? (
               <div>
                 <h2 className="mb-3 text-lg font-semibold text-[var(--ink-strong)]">
-                  Family
+                  {t("billing.groupFamily")}
                 </h2>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {family.map(renderPlanCard)}

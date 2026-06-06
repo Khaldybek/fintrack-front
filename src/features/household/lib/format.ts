@@ -1,23 +1,29 @@
 import type { HouseholdMemberRole } from "@/shared/api";
 import type { MoneyDto } from "@/shared/api";
+import type { Locale } from "@/shared/i18n";
+import { formatDateLocale } from "@/shared/lib/format-locale";
 
-export function formatJoinedAt(iso: string): string {
-  return new Date(iso).toLocaleDateString("ru-KZ", {
+export function formatJoinedAt(iso: string, locale: Locale): string {
+  return formatDateLocale(iso, locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 }
 
-export function formatPeriodLabel(from: string, to: string): string {
+export function formatPeriodLabel(
+  from: string,
+  to: string,
+  locale: Locale,
+): string {
   const a = new Date(from + "T12:00:00");
   const b = new Date(to + "T12:00:00");
   const sameMonth =
     a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
   if (sameMonth) {
-    return a.toLocaleDateString("ru-KZ", { month: "long", year: "numeric" });
+    return formatDateLocale(a, locale, { month: "long", year: "numeric" });
   }
-  return `${a.toLocaleDateString("ru-KZ", { day: "numeric", month: "short" })} — ${b.toLocaleDateString("ru-KZ", { day: "numeric", month: "short", year: "numeric" })}`;
+  return `${formatDateLocale(a, locale, { day: "numeric", month: "short" })} — ${formatDateLocale(b, locale, { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
 export function roleLabel(

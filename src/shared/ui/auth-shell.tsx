@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
 
 export type AuthShellProps = {
   title: string;
@@ -17,6 +18,8 @@ export function AuthShell({
   helperText,
   children,
 }: AuthShellProps) {
+  const { t } = useI18n();
+
   return (
     <div className="app-shell">
       <div className="bg-orb bg-orb-left" />
@@ -29,19 +32,15 @@ export function AuthShell({
               FinTrack Access
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--ink-strong)]">
-              Спокойный контроль финансов
+              {t("shell.brandTitle")}
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
               {helperText}
             </p>
             <div className="mt-8 space-y-3">
-              <div className="alert">
-                Финансовый индекс и прогноз кассового разрыва
-              </div>
-              <div className="alert">
-                Защита аккаунта и безопасные финансовые действия
-              </div>
-              <div className="alert">Единый профиль для Web и Mobile</div>
+              <div className="alert">{t("shell.brandFeature1")}</div>
+              <div className="alert">{t("shell.brandFeature2")}</div>
+              <div className="alert">{t("shell.brandFeature3")}</div>
             </div>
           </article>
 

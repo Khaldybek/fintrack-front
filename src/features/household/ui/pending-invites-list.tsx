@@ -14,7 +14,7 @@ export function PendingInvitesList({
   invites,
   onCancelled,
 }: PendingInvitesListProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   if (invites.length === 0) return null;
 
@@ -36,7 +36,7 @@ export function PendingInvitesList({
                 {inv.expiresAt
                   ? ` · ${t("family.invites.expires").replace(
                       "{date}",
-                      formatJoinedAt(inv.expiresAt),
+                      formatJoinedAt(inv.expiresAt, locale),
                     )}`
                   : ""}
               </p>

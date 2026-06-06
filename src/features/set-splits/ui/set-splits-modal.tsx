@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { getCategories, createTransactionSplits } from "@/shared/api";
 import type { Transaction, Category } from "@/shared/api";
+import { useI18n } from "@/shared/i18n";
+import { formatNumberLocale } from "@/shared/lib/format-locale";
 
 export type SetSplitsModalProps = {
   transaction: Transaction;
@@ -23,6 +25,7 @@ function uid() {
 
 /** Суммы в API — целые единицы валюты (₸). */
 export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsModalProps) {
+  const { t, locale } = useI18n();
   const totalAbs = Math.abs(transaction.amount_minor);
 
   const initialRows: SplitRow[] = transaction.splits?.length
@@ -67,7 +70,11 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
 
   const handleSubmit = async () => {
     if (!isBalanced) {
-      setError(`Сумма разбивки (${sumAmount.toLocaleString("ru-KZ")} ₸) не равна сумме транзакции (${totalAbs.toLocaleString("ru-KZ")} ₸).`);
+      setError(
+        t("splits.mismatch")
+          .replace("{split}", formatNumberLocale(sumAmount, locale))
+          .replace("{total}", formatNumberLocale(totalAbs, locale)),
+      );
       return;
     }
     setSubmitting(true);
@@ -84,7 +91,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
       onSuccess?.(updated);
       onClose();
     } catch (err) {
-      setError((err as Error)?.message ?? "Не удалось сохранить разбивку");
+      setError((err as Error)?.message ?? t("splits.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -93,7 +100,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
   const content = typeof document !== "undefined" && (
     <div className="fixed inset-0 z-[80] flex flex-col items-center justify-end md:justify-center">
       <button
-        aria-label="Закрыть"
+        aria-label={t("common.close")}
         className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
         onClick={onClose}
         type="button"
@@ -101,18 +108,18 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
       <section className="relative z-10 w-full max-h-[90vh] overflow-y-auto rounded-t-2xl border border-[var(--line)] bg-white p-4 shadow-2xl md:max-h-[85vh] md:w-[520px] md:rounded-2xl md:p-6 md:my-4">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="metric-label">Разбивка по категориям</p>
+            <p className="metric-label">{t("splits.title")}</p>
             <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-              Итого: {totalAbs.toLocaleString("ru-KZ")} ₸
+              {t("splits.total").replace("{amount}", formatNumberLocale(totalAbs, locale))}
             </h3>
           </div>
           <button className="tx-inline-btn" onClick={onClose} type="button">
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
 
         {loading ? (
-          <p className="text-sm text-[var(--ink-muted)]">Загрузка категорий…</p>
+          <p className="text-sm text-[var(--ink-muted)]">{t("splits.loadingCategories")}</p>
         ) : (
           <div className="space-y-3">
             {rows.map((row, idx) => (
@@ -157,7 +164,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
               onClick={addRow}
               type="button"
             >
-              + Добавить строку
+              {t("splits.addRow")}
             </button>
 
             <div
@@ -168,8 +175,11 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
               }`}
             >
               {isBalanced
-                ? "Сумма сходится ✓"
-                : `Остаток: ${diff > 0 ? "+" : ""}${diff.toLocaleString("ru-KZ")} ₸`}
+                ? t("splits.matched")
+                : t("splits.remainder").replace(
+                    "{amount}",
+                    `${diff > 0 ? "+" : ""}${formatNumberLocale(diff, locale)}`,
+                  )}
             </div>
           </div>
         )}
@@ -178,7 +188,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
 
         <div className="mt-5 flex items-center justify-between gap-2">
           <button className="filter-chip" onClick={onClose} type="button">
-            Отмена
+            {t("common.cancel")}
           </button>
           <button
             className="action-btn"
@@ -186,7 +196,7 @@ export function SetSplitsModal({ transaction, onSuccess, onClose }: SetSplitsMod
             onClick={handleSubmit}
             type="button"
           >
-            {submitting ? "Сохранение…" : "Сохранить разбивку"}
+            {submitting ? t("common.saving") : t("splits.save")}
           </button>
         </div>
       </section>

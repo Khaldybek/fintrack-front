@@ -12,10 +12,11 @@ import type { HouseholdInvitePreview } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
 import { roleLabel } from "@/features/household/lib/format";
+import { formatDateLocale } from "@/shared/lib/format-locale";
 import { AuthShell } from "@/shared/ui";
 
 export function HouseholdAcceptContent() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -127,7 +128,7 @@ export function HouseholdAcceptContent() {
   }
 
   const expiresLabel = preview?.expiresAt
-    ? new Date(preview.expiresAt).toLocaleDateString("ru-KZ", {
+    ? formatDateLocale(preview.expiresAt, locale, {
         day: "numeric",
         month: "long",
         year: "numeric",

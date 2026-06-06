@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/app/providers/auth-provider";
 import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
 import { AccountsNavProvider } from "./accounts-nav-context";
 
 type AuthGuardProps = { children: React.ReactNode };
@@ -13,6 +14,7 @@ type AuthGuardProps = { children: React.ReactNode };
  * Убирает 401 из-за гонки: запросы уходят только после появления токена или редиректа на логин.
  */
 export function AuthGuard({ children }: AuthGuardProps) {
+  const { t } = useI18n();
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -27,9 +29,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--surface-1)]">
         <div className="text-center">
-          <p className="metric-label">Загрузка сессии…</p>
+          <p className="metric-label">{t("authGuard.loading")}</p>
           <p className="mt-2 text-sm text-[var(--ink-muted)]">
-            Проверка авторизации
+            {t("authGuard.checking")}
           </p>
         </div>
       </div>

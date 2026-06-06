@@ -15,7 +15,7 @@ export function FamilyAccountsTab() {
     setLoading(true);
     getHouseholdAccounts()
       .then(setAccounts)
-      .catch((err) => setError((err as Error)?.message ?? "Error"))
+      .catch((err) => setError((err as Error)?.message ?? t("common.loadError")))
       .finally(() => setLoading(false));
   }, []);
 

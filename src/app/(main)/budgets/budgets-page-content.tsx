@@ -5,8 +5,11 @@ import Link from "next/link";
 import { usePlan } from "@/app/providers/plan-provider";
 import { UpgradeModal } from "@/features/upgrade/ui/upgrade-modal";
 import { ROUTES } from "@/shared/config";
+import { useI18n } from "@/shared/i18n";
+import { formatDateLocale } from "@/shared/lib/format-locale";
 import { formatMoney, useBodyScrollLock } from "@/shared/lib";
 import { isFeatureGatedError } from "@/shared/lib/is-feature-gated";
+import { translateFeatureGatedHint } from "@/shared/lib/translate-severity";
 import { AppShell } from "@/widgets/app-shell";
 import {
   getBudgets,
@@ -34,11 +37,11 @@ function getSeverity(item: Budget): SeverityLevel {
   return "good";
 }
 
-function severityLabel(sev: SeverityLevel): string {
-  if (sev === "risk") return "Перерасход";
-  if (sev === "attention") return "Осторожно";
-  return "В норме";
-}
+const SEVERITY_KEYS: Record<SeverityLevel, string> = {
+  good: "common.severity.good",
+  attention: "common.severity.attention",
+  risk: "common.severity.risk",
+};
 
 function severityClass(sev: SeverityLevel): string {
   if (sev === "risk") return "budget-pill risk";
@@ -60,6 +63,7 @@ function explanationClass(sev: SeverityLevel): string {
 
 /** Контент без обёртки AppShell — для встраивания на объединённую страницу «Бюджеты и цели». */
 export function BudgetsSection() {
+  const { t, locale } = useI18n();
   const { canAddBudget } = usePlan();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
@@ -84,9 +88,9 @@ export function BudgetsSection() {
   const loadBudgets = useCallback(() => {
     return getBudgets()
       .then(setBudgets)
-      .catch((err) => setError(err?.message ?? "Не удалось загрузить бюджеты"))
+      .catch((err) => setError(err?.message ?? t("budgets.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const loadCategories = useCallback(() => {
     getCategories().then(setCategories).catch(() => {});
@@ -99,9 +103,7 @@ export function BudgetsSection() {
 
   const openCreateModal = () => {
     if (!canAddBudget(budgets.length)) {
-      setUpgradeMessage(
-        "Free-план позволяет только 1 бюджет. Перейдите на Pro для неограниченного количества.",
-      );
+      setUpgradeMessage(t("planGated.budgets"));
       setUpgradeOpen(true);
       return;
     }
@@ -126,8 +128,8 @@ export function BudgetsSection() {
     setFormError(null);
     setIsGated(false);
     const limitNum = parseFloat(formLimit.replace(/\s/g, "").replace(",", "."));
-    if (!formCategoryId.trim()) { setFormError("Выберите категорию"); return; }
-    if (!Number.isFinite(limitNum) || limitNum <= 0) { setFormError("Введите корректный лимит"); return; }
+    if (!formCategoryId.trim()) { setFormError(t("budgets.selectCategory")); return; }
+    if (!Number.isFinite(limitNum) || limitNum <= 0) { setFormError(t("budgets.limitInvalid")); return; }
     setSubmitting(true);
     try {
       await createBudget({
@@ -140,16 +142,17 @@ export function BudgetsSection() {
     } catch (err) {
       if (err instanceof FeatureGatedError || isFeatureGatedError(err)) {
         setIsGated(true);
+        const code =
+          err instanceof FeatureGatedError
+            ? err.featureCode
+            : (err as { featureCode?: string }).featureCode;
         const hint =
           err instanceof FeatureGatedError
             ? err.upgradeHint
             : (err as { upgradeHint?: string }).upgradeHint;
-        setFormError(
-          hint ??
-            "Free-план позволяет только 1 бюджет. Перейдите на Pro для неограниченного количества.",
-        );
+        setFormError(translateFeatureGatedHint(code, hint, t));
       } else {
-        setFormError((err as Error)?.message ?? "Не удалось создать бюджет");
+        setFormError((err as Error)?.message ?? t("budgets.createError"));
       }
     } finally {
       setSubmitting(false);
@@ -161,7 +164,7 @@ export function BudgetsSection() {
     if (!editBudget) return;
     setFormError(null);
     const limitNum = parseFloat(formLimit.replace(/\s/g, "").replace(",", "."));
-    if (!Number.isFinite(limitNum) || limitNum <= 0) { setFormError("Введите корректный лимит"); return; }
+    if (!Number.isFinite(limitNum) || limitNum <= 0) { setFormError(t("budgets.limitInvalid")); return; }
     setSubmitting(true);
     try {
       await updateBudget(editBudget.id, {
@@ -171,7 +174,7 @@ export function BudgetsSection() {
       await loadBudgets();
       setEditBudget(null);
     } catch (err) {
-      setFormError((err as Error)?.message ?? "Не удалось сохранить");
+      setFormError((err as Error)?.message ?? t("common.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -187,13 +190,15 @@ export function BudgetsSection() {
     }
   };
 
-  const now = new Date();
-  const monthLabel = now.toLocaleString("ru-KZ", { month: "long", year: "numeric" });
+  const monthLabel = formatDateLocale(new Date(), locale, {
+    month: "long",
+    year: "numeric",
+  });
 
   if (loading) {
     return (
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <div className="metric-label">Загрузка…</div>
+        <div className="metric-label">{t("common.loading")}</div>
       </section>
     );
   }
@@ -215,23 +220,27 @@ export function BudgetsSection() {
         <div className="flex flex-wrap items-center gap-3">
           <span className="mono text-xs text-[var(--ink-muted)] uppercase tracking-wide capitalize">{monthLabel}</span>
           {atRisk > 0 && (
-            <span className="budget-pill risk">{atRisk} перерасход{atRisk > 1 ? "а" : ""}</span>
+            <span className="budget-pill risk">
+              {atRisk === 1
+                ? t("budgets.atRiskOne")
+                : t("budgets.atRiskMany").replace("{count}", String(atRisk))}
+            </span>
           )}
           {atAttention > 0 && (
-            <span className="budget-pill warn">{atAttention} на грани</span>
+            <span className="budget-pill warn">
+              {t("budgets.atAttention").replace("{count}", String(atAttention))}
+            </span>
           )}
         </div>
         <button className="action-btn" type="button" onClick={openCreateModal}>
-          + Новый бюджет
+          {t("budgets.add")}
         </button>
       </div>
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {budgets.length === 0 ? (
           <div className="card p-5 md:p-6">
-            <p className="text-sm text-[var(--ink-muted)]">
-              Нет бюджетов. Нажмите «+ Новый бюджет», чтобы задать лимит по категории.
-            </p>
+            <p className="text-sm text-[var(--ink-muted)]">{t("budgets.empty")}</p>
           </div>
         ) : (
           budgets.map((item) => {
@@ -244,14 +253,14 @@ export function BudgetsSection() {
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="text-lg font-semibold text-[var(--ink-strong)]">{categoryName}</h2>
                   <span className={severityClass(sev)}>
-                    {severityLabel(sev)} {percent}%
+                    {t(SEVERITY_KEYS[sev])} {percent}%
                   </span>
                 </div>
 
                 <p className="mt-2 text-sm text-[var(--ink-muted)]">
-                  Потрачено: <span className="font-medium text-[var(--ink-soft)]">{formatMoney(item.spent)}</span>
-                  {" из "}
-                  <span className="font-medium text-[var(--ink-strong)]">{formatMoney(item.limit)}</span>
+                  {t("budgets.spentOf")
+                    .replace("{spent}", formatMoney(item.spent))
+                    .replace("{limit}", formatMoney(item.limit))}
                 </p>
 
                 <div className="mt-3 h-2.5 rounded-full bg-[var(--surface-3)]">
@@ -279,14 +288,14 @@ export function BudgetsSection() {
                     className="tx-inline-btn h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
                     onClick={() => openEdit(item)}
                   >
-                    Редактировать
+                    {t("common.edit")}
                   </button>
                   <button
                     type="button"
                     className="tx-inline-btn danger h-9 shrink-0 rounded-lg px-3 text-sm font-medium"
                     onClick={() => setDeleteConfirmId(item.id)}
                   >
-                    Удалить
+                    {t("common.delete")}
                   </button>
                 </div>
               </article>
@@ -299,7 +308,7 @@ export function BudgetsSection() {
       {modalOpen && (
         <div className="fixed inset-0 z-[80] overflow-hidden">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setModalOpen(false)}
             type="button"
@@ -311,8 +320,8 @@ export function BudgetsSection() {
                   <span className="h-1.5 w-10 rounded-full bg-[var(--surface-3)]" />
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">Новый бюджет</h3>
-                  <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>Закрыть</button>
+                  <h3 className="text-lg font-semibold text-[var(--ink-strong)]">{t("budgets.createTitle")}</h3>
+                  <button className="tx-inline-btn" type="button" onClick={() => setModalOpen(false)}>{t("common.close")}</button>
                 </div>
               </div>
               <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
@@ -325,22 +334,22 @@ export function BudgetsSection() {
                           className="ml-2 font-medium underline"
                           href={ROUTES.pricing}
                         >
-                          Смотреть тарифы →
+                          {t("upgrade.viewPlans")}
                         </Link>
                       )}
                     </div>
                   )}
                   <label className="auth-field">
-                    <span>Категория</span>
+                    <span>{t("budgets.category")}</span>
                     <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} required>
-                      <option value="">Выберите категорию</option>
+                      <option value="">{t("budgets.selectCategory")}</option>
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </label>
                   <label className="auth-field">
-                    <span>Лимит на месяц, {formCurrency}</span>
+                    <span>{t("budgets.limitMonthly").replace("{currency}", formCurrency)}</span>
                     <input
                       value={formLimit}
                       onChange={(e) => setFormLimit(formatAmountInput(e.target.value))}
@@ -351,7 +360,7 @@ export function BudgetsSection() {
                     />
                   </label>
                   <label className="auth-field">
-                    <span>Валюта</span>
+                    <span>{t("common.currency")}</span>
                     <select value={formCurrency} onChange={(e) => setFormCurrency(e.target.value)}>
                       <option value="KZT">KZT</option>
                       <option value="USD">USD</option>
@@ -359,9 +368,9 @@ export function BudgetsSection() {
                     </select>
                   </label>
                   <div className="sticky bottom-0 z-[1] flex flex-col-reverse gap-2 bg-[var(--surface-1)] pt-2 pb-1 sm:flex-row sm:items-center md:static md:bg-transparent md:pt-0">
-                    <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setModalOpen(false)}>Отмена</button>
+                    <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setModalOpen(false)}>{t("common.cancel")}</button>
                     <button className="action-btn w-full sm:flex-1" type="submit" disabled={submitting || isGated}>
-                      {submitting ? "Создаём…" : "Создать"}
+                      {submitting ? t("common.creating") : t("common.create")}
                     </button>
                   </div>
                 </form>
@@ -375,7 +384,7 @@ export function BudgetsSection() {
       {editBudget && (
         <div className="fixed inset-0 z-[80] overflow-hidden">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setEditBudget(null)}
             type="button"
@@ -388,16 +397,19 @@ export function BudgetsSection() {
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-lg font-semibold text-[var(--ink-strong)]">
-                    Редактировать — {editBudget.category?.name ?? editBudget.categoryId}
+                    {t("budgets.editWithName").replace(
+                      "{name}",
+                      editBudget.category?.name ?? editBudget.categoryId,
+                    )}
                   </h3>
-                  <button className="tx-inline-btn" type="button" onClick={() => setEditBudget(null)}>Закрыть</button>
+                  <button className="tx-inline-btn" type="button" onClick={() => setEditBudget(null)}>{t("common.close")}</button>
                 </div>
               </div>
               <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] md:px-6">
                 <form onSubmit={handleEdit} className="grid gap-3 pb-2">
                   {formError && <div className="alert alert-warn">{formError}</div>}
                   <label className="auth-field">
-                    <span>Лимит на месяц, {formCurrency}</span>
+                    <span>{t("budgets.limitMonthly").replace("{currency}", formCurrency)}</span>
                     <input
                       value={formLimit}
                       onChange={(e) => setFormLimit(formatAmountInput(e.target.value))}
@@ -408,7 +420,7 @@ export function BudgetsSection() {
                     />
                   </label>
                   <label className="auth-field">
-                    <span>Валюта</span>
+                    <span>{t("common.currency")}</span>
                     <select value={formCurrency} onChange={(e) => setFormCurrency(e.target.value)}>
                       <option value="KZT">KZT</option>
                       <option value="USD">USD</option>
@@ -416,9 +428,9 @@ export function BudgetsSection() {
                     </select>
                   </label>
                   <div className="sticky bottom-0 z-[1] flex flex-col-reverse gap-2 bg-[var(--surface-1)] pt-2 pb-1 sm:flex-row sm:items-center md:static md:bg-transparent md:pt-0">
-                    <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setEditBudget(null)}>Отмена</button>
+                    <button className="tx-inline-btn w-full sm:w-auto" type="button" onClick={() => setEditBudget(null)}>{t("common.cancel")}</button>
                     <button className="action-btn w-full sm:flex-1" type="submit" disabled={submitting}>
-                      {submitting ? "Сохраняем…" : "Сохранить"}
+                      {submitting ? t("common.saving") : t("common.save")}
                     </button>
                   </div>
                 </form>
@@ -432,26 +444,24 @@ export function BudgetsSection() {
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[82] overflow-hidden">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]"
             onClick={() => setDeleteConfirmId(null)}
             type="button"
           />
           <section className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-[var(--line)] bg-[var(--surface-1)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl md:bottom-1/2 md:left-1/2 md:right-auto md:w-[360px] md:-translate-x-1/2 md:translate-y-1/2 md:rounded-2xl md:p-6 md:pb-6">
-            <p className="font-medium text-[var(--ink-strong)]">Удалить бюджет?</p>
-            <p className="mt-1 text-sm text-[var(--ink-muted)]">
-              Лимит по категории будет удалён. Исторические траты не изменятся.
-            </p>
+            <p className="font-medium text-[var(--ink-strong)]">{t("budgets.deleteConfirm")}</p>
+            <p className="mt-1 text-sm text-[var(--ink-muted)]">{t("budgets.deleteBody")}</p>
             <div className="mt-4 flex gap-2">
               <button
                 className="action-btn flex-1 bg-[#9f1239] hover:bg-[#7f1d1d]"
                 type="button"
                 onClick={() => handleDelete(deleteConfirmId)}
               >
-                Удалить
+                {t("common.delete")}
               </button>
               <button className="tx-inline-btn flex-1" type="button" onClick={() => setDeleteConfirmId(null)}>
-                Отмена
+                {t("common.cancel")}
               </button>
             </div>
           </section>
@@ -469,11 +479,12 @@ export function BudgetsSection() {
 
 /** Отдельная страница «Бюджеты» (для обратной совместимости и редиректа). */
 export function BudgetsPageContent() {
+  const { t } = useI18n();
   return (
     <AppShell
       active="budgets"
-      title="Бюджеты"
-      subtitle="Лимиты по категориям и контроль превышений в реальном времени."
+      title={t("budgets.title")}
+      subtitle={t("budgets.subtitle")}
     >
       <BudgetsSection />
     </AppShell>

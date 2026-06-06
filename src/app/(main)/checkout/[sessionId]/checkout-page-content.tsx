@@ -108,7 +108,7 @@ export function CheckoutPageContent({ sessionId }: CheckoutPageContentProps) {
     <AppShell
       active="profile"
       title={t("billing.checkoutTitle")}
-      subtitle={formatPlanLabel(session.planCode)}
+      subtitle={formatPlanLabel(session.planCode, t)}
     >
       <section className="mx-auto max-w-lg space-y-5">
         <article className="card p-5 md:p-6">

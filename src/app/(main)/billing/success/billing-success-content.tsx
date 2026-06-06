@@ -32,7 +32,7 @@ export function BillingSuccessContent() {
             {isLoading
               ? t("common.loading")
               : plan
-                ? `${t("billing.yourPlan")}: ${formatPlanLabel(plan.plan)}`
+                ? `${t("billing.yourPlan")}: ${formatPlanLabel(plan.plan, t)}`
                 : t("billing.planUpdated")}
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">

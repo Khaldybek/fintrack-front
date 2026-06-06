@@ -8,11 +8,16 @@
  *
  * `divideBy100: true` — только если API реально отдаёт сумму в тиынах (100 = 1 ₸).
  */
+import type { Locale } from "@/shared/i18n";
+import { getStoredLocale } from "@/shared/i18n/locale-storage";
+import { formatNumberLocale } from "./format-locale";
+
 export function formatMoney(
   value: unknown,
-  options?: { divideBy100?: boolean; fallback?: string },
+  options?: { divideBy100?: boolean; fallback?: string; locale?: Locale },
 ): string {
   const fallback = options?.fallback ?? "—";
+  const locale = options?.locale ?? getStoredLocale();
 
   if (value == null) return fallback;
 
@@ -20,7 +25,7 @@ export function formatMoney(
 
   if (typeof value === "number") {
     const amount = options?.divideBy100 === true ? value / 100 : value;
-    return amount.toLocaleString("ru-KZ") || fallback;
+    return formatNumberLocale(amount, locale) || fallback;
   }
 
   if (typeof value === "object" && value !== null) {
@@ -31,7 +36,7 @@ export function formatMoney(
     if (typeof v.amount_minor === "number") {
       const amount = options?.divideBy100 === true ? v.amount_minor / 100 : v.amount_minor;
       const currency = typeof v.currency === "string" ? ` ${v.currency}` : " ₸";
-      return `${amount.toLocaleString("ru-KZ")}${currency}`;
+      return `${formatNumberLocale(amount, locale)}${currency}`;
     }
   }
 

@@ -10,12 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import { getMessage } from "./get-message";
+import { LOCALE_STORAGE_KEY } from "./locale-storage";
 import { kk } from "./messages/kk";
 import { ru } from "./messages/ru";
 
 export type Locale = "ru" | "kk";
 
-const STORAGE_KEY = "fintrack_locale";
+export { LOCALE_STORAGE_KEY, getStoredLocale, toAcceptLanguage } from "./locale-storage";
 
 type I18nContextValue = {
   locale: Locale;
@@ -30,7 +31,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem(STORAGE_KEY);
+      const s = localStorage.getItem(LOCALE_STORAGE_KEY);
       if (s === "kk" || s === "ru") setLocaleState(s);
     } catch {
       /* ignore */
@@ -40,7 +41,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     try {
-      localStorage.setItem(STORAGE_KEY, l);
+      localStorage.setItem(LOCALE_STORAGE_KEY, l);
     } catch {
       /* ignore */
     }

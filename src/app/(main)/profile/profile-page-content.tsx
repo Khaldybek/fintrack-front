@@ -20,18 +20,18 @@ import {
 } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useI18n } from "@/shared/i18n";
-import { formatLimitValue, formatPlanLabel, hasEffectiveFamilyMode, isHouseholdMemberOnFree } from "@/shared/lib/plan";
+import { formatDateLocale } from "@/shared/lib/format-locale";
+import {
+  formatLimitValue,
+  formatPlanLabel,
+  hasEffectiveFamilyMode,
+  isHouseholdMemberOnFree,
+} from "@/shared/lib/plan";
 import { AppShell } from "@/widgets/app-shell";
 import { ExtraScreensNav } from "@/widgets/extra-screens-nav";
 
-const localeLabel: Record<string, string> = {
-  ru: "Русский",
-  en: "English",
-  kk: "Қазақша",
-};
-
 export function ProfilePageContent() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { logout } = useAuth();
   const { plan, refreshPlan, isPaid } = usePlan();
   const { refresh: refreshAccountsNav } = useAccountsNav();
@@ -143,7 +143,7 @@ export function ProfilePageContent() {
     );
   }
 
-  const planLabel = plan ? formatPlanLabel(plan.plan) : "Free";
+  const planLabel = plan ? formatPlanLabel(plan.plan, t) : formatPlanLabel("free", t);
   const planLimits = plan?.limits;
   const subscription = plan?.subscription;
 
@@ -152,9 +152,9 @@ export function ProfilePageContent() {
   const isFamilyMember = isHouseholdMemberOnFree(plan);
   const planLimitsText = plan
     ? t("profile.planLimits")
-        .replace("{accounts}", formatLimitValue(planLimits?.accounts))
-        .replace("{budgets}", formatLimitValue(planLimits?.budgets))
-        .replace("{goals}", formatLimitValue(planLimits?.goals))
+        .replace("{accounts}", formatLimitValue(planLimits?.accounts, t))
+        .replace("{budgets}", formatLimitValue(planLimits?.budgets, t))
+        .replace("{goals}", formatLimitValue(planLimits?.goals, t))
         .replace(
           "{index}",
           features?.dashboardIndex ? t("common.yes") : t("common.no"),
@@ -218,7 +218,9 @@ export function ProfilePageContent() {
               <span>{t("profile.language")}</span>
               <span className="mono">
                 {profile?.locale
-                  ? (localeLabel[profile.locale] ?? profile.locale)
+                  ? (profile.locale === "ru" || profile.locale === "kk"
+                      ? t(`profile.localeLabels.${profile.locale}` as "profile.localeLabels.ru")
+                      : profile.locale)
                   : "—"}
               </span>
             </div>
@@ -324,7 +326,7 @@ export function ProfilePageContent() {
                     .replace(
                       "{plan}",
                       plan.householdOwnerPlan
-                        ? formatPlanLabel(plan.householdOwnerPlan)
+                        ? formatPlanLabel(plan.householdOwnerPlan, t)
                         : "Family",
                     )}
                 </p>
@@ -407,15 +409,16 @@ export function ProfilePageContent() {
                       key={inv.id}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm"
                     >
-                      <span>{inv.description || formatPlanLabel(inv.planCode)}</span>
+                      <span>{inv.description || formatPlanLabel(inv.planCode, t)}</span>
                       <span className="mono text-[var(--ink-soft)]">
                         {inv.amount?.formatted ?? `${inv.amountMinor} ₸`}
                       </span>
                       <span className="text-xs text-[var(--ink-muted)]">
                         {(inv.paidAt ?? inv.createdAt)
-                          ? new Date(
+                          ? formatDateLocale(
                               inv.paidAt ?? inv.createdAt ?? "",
-                            ).toLocaleDateString("ru-KZ")
+                              locale,
+                            )
                           : "—"}
                       </span>
                     </li>
@@ -454,7 +457,7 @@ export function ProfilePageContent() {
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[82] flex flex-col items-center justify-center p-4">
           <button
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"
             onClick={() => setDeleteConfirmId(null)}
             type="button"
